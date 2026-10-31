@@ -1,0 +1,11 @@
+# Clash of Clans Automation Bot Dependencies
+opencv-python>=4.8.0
+numpy>=1.24.0
+mss>=9.0.0
+pure-python-adb>=0.3.0
+pywin32>=306; platform_system=="Windows"
+PyYAML>=6.0.0
+Pillow>=10.0.0
+easyocr>=1.7.0
+customtkinter>=6.0.0
+darkdetect>=0.8.0

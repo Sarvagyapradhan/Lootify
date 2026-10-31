@@ -1,0 +1,86 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.ruff_cache/
+
+# Distribution / packaging / binaries
+dist/
+build/
+*.spec
+*.egg-info/
+*.exe
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+
+# Large local recordings & video dumps
+screen recording manualliy/
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Video frame dumps & temporary debug captures
+scratch/video_frames/
+scratch/*.png
+!scratch/drawer_scroll_5.png
+!img_596e_720.png
+yolov8n.pt
+ai_data/labels.cache
+ai_data/*.png
+ai_data/images/
+
+# Root debug and temporary screenshots
+after_swipe_*.png
+after_upgrade_more_tap.png
+after_wall_tap.png
+b_crop_*.png
+badge_*.png
+card1_*.png
+card_slice_*.png
+clean_*.png
+crop_*.png
+current_live_screen.png
+debug_hud_right.png
+drawer_bottom_*.png
+drawer_opened_frame.png
+drawer_swipe_*.png
+drawer_tabs_live.png
+drawer_title.png
+full_tray_strip.png
+gui_builder_crop.png
+home_br.png
+img10_test.png
+live_debug_frame.png
+matched_word.png
+memu_*.png
+minion_prince_ref.png
+mp_only.png
+price_patch*.png
+r1_edge.png
+r2_edge.png
+real_builder_crop.png
+real_card_*.png
+row*.png
+safe_beach_crop.png
+slot_*.png
+surrender_btn.png
+tab1_crop.png
+tabs_7860.png
+template_word.png
+test_596e.png
+tray_*.png
+uploaded_tray_720.png
+verify_clean_home.png
+wall_row_411.png
+
+# Temporary logs & local runtime files
+*.log
+local_cache/
+.DS_Store
+Thumbs.db

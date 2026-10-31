@@ -1,0 +1,52 @@
+# Clash of Clans Hero Equipment & Ability Timing Configuration
+# Handles modern Hero Equipment system (Active vs. Passive abilities)
+
+heroes:
+  barbarian_king:
+    enabled: true
+    deployment_priority: 1 # Deployment order in battle
+    # Equipment examples:
+    # - Active: Giant Gauntlet, Barbarian Puppet, Rage Vial, Spiky Ball (active on tap)
+    # - Passive: Vampstache, Healing Mustache
+    has_active_ability: true
+    equipment_preset: "Giant_Gauntlet_Rage_Vial"
+    ability_trigger_mode: "delay" # "delay" (fixed seconds) or "visual_hp" (trigger when red HP bar is low)
+    ability_delay_seconds: 15 # Wait 15 seconds after dropping before pressing ability
+    notes: "King deployed first to tank defenses. Ability triggered after reaching core outer layer."
+
+  archer_queen:
+    enabled: true
+    deployment_priority: 2
+    # Equipment examples:
+    # - Active: Invisibility Vial, Archer Puppet, Giant Arrow
+    # - Passive: Frozen Arrow, Healer Puppet
+    has_active_ability: true
+    equipment_preset: "Invisibility_Vial_Frozen_Arrow"
+    ability_trigger_mode: "delay"
+    ability_delay_seconds: 22 # Wait 22 seconds after dropping before activating Invis Vial
+    notes: "Queen deployed behind King. Delay gives maximum damage before activating cloak."
+
+  grand_warden:
+    enabled: true
+    deployment_priority: 3
+    # Equipment examples:
+    # - Active: Eternal Tome, Fireball
+    # - Passive: Life Gem, Healing Tome, Rage Gem
+    has_active_ability: true
+    equipment_preset: "Eternal_Tome_Healing_Tome"
+    ability_trigger_mode: "delay"
+    ability_delay_seconds: 8 # Protects initial heavy push through Town Hall/Eagle Artillery blast
+    mode: "GROUND" # "GROUND" or "AIR"
+    notes: "Warden ability triggers early during main army wave push."
+
+  royal_champion:
+    enabled: true
+    deployment_priority: 4
+    # Equipment examples:
+    # - Active: Seeking Shield, Rocket Boots
+    # - Passive: Haste Vial, Hog Rider Puppet
+    has_active_ability: true
+    equipment_preset: "Seeking_Shield_Haste_Vial"
+    ability_trigger_mode: "delay"
+    ability_delay_seconds: 12
+    notes: "RC dropped on flank to snipe backend defenses, shield activated at T+12s."

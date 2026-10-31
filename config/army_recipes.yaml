@@ -1,0 +1,100 @@
+# Saved Army Composition Recipes & Attack Profiles
+# You can define custom recipes and switch between them in settings.yaml
+
+recipes:
+  Sneaky_Goblins_Farming:
+    description: "Maximum efficiency farming for Gold, Elixir, and Dark Elixir"
+    quick_train_slot: 1
+    recommended_spells: ["Jump", "Invisibility", "Earthquake"]
+    early_surrender:
+      enabled: true
+      loot_remaining_threshold_percent: 10 # Exit battle when 90% of available loot is acquired
+      max_battle_time_seconds: 70 # Never wait the full 3 minutes
+
+    deployment_plan:
+      - phase: 1
+        name: "External Collector Sniping"
+        unit_type: "sneaky_goblin"
+        strategy: "surgical_perimeter" # Taps 2-3 goblins near outer resource collectors
+        units_per_spot: 3
+        delay_between_spots_ms: 250
+
+      - phase: 2
+        name: "Funnel / Core Pathing"
+        unit_type: "jump_spell"
+        strategy: "center_line" # Drop jump spell towards core/Town Hall
+        count: 2
+        delay_ms: 500
+
+      - phase: 3
+        name: "Hero Deployment & Heavy Tanking"
+        strategy: "hero_sequence" # Uses heroes.yaml settings & delay timers
+        heroes: ["barbarian_king", "archer_queen", "grand_warden", "royal_champion"]
+        delay_between_heroes_ms: 1200
+
+      - phase: 4
+        name: "Core Town Hall & Dark Elixir Push"
+        unit_type: "sneaky_goblin"
+        strategy: "concentrated_wave"
+        units_per_spot: 15
+        delay_between_spots_ms: 100
+
+      - phase: 5
+        name: "Invisibility Cover"
+        unit_type: "invisibility_spell"
+        strategy: "core_target"
+        count: 2
+        delay_ms: 4000
+
+  BARCH_Collector_Raid:
+    description: "Classic Barbarians and Archers perimeter wave for dead bases"
+    quick_train_slot: 2
+    recommended_spells: ["Lightning"]
+    early_surrender:
+      enabled: true
+      loot_remaining_threshold_percent: 15
+      max_battle_time_seconds: 90
+
+    deployment_plan:
+      - phase: 1
+        name: "Barbarian Meat-Shield Perimeter Wave"
+        unit_type: "barbarian"
+        strategy: "four_side_wave" # Spreads along 4 map border edges
+        waves: 2
+        delay_between_waves_ms: 800
+
+      - phase: 2
+        name: "Archer DPS Wave"
+        unit_type: "archer"
+        strategy: "four_side_wave"
+        waves: 3
+        delay_between_waves_ms: 600
+
+      - phase: 3
+        name: "Hero Cleanup"
+        strategy: "hero_sequence"
+        heroes: ["barbarian_king", "archer_queen"]
+        delay_between_heroes_ms: 1000
+
+  Baby_Dragon_Air_Farming:
+    description: "Surgical Baby Dragons utilizing solo-enrage buff on collectors"
+    quick_train_slot: 3
+    recommended_spells: ["Lightning", "Freeze"]
+    early_surrender:
+      enabled: true
+      loot_remaining_threshold_percent: 12
+      max_battle_time_seconds: 80
+
+    deployment_plan:
+      - phase: 1
+        name: "Spaced Perimeter Drop"
+        unit_type: "baby_dragon"
+        strategy: "spaced_perimeter"
+        units_per_spot: 1 # Spaced out so they maintain individual rage boost
+        delay_between_spots_ms: 1200
+
+      - phase: 2
+        name: "Hero Penetration"
+        strategy: "hero_sequence"
+        heroes: ["barbarian_king", "archer_queen", "grand_warden"]
+        delay_between_heroes_ms: 1500

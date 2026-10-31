@@ -1,0 +1,146 @@
+{
+  "learned_coordinates": {
+    "build_button": {
+      "x": 1210,
+      "y": 630,
+      "count": 3521,
+      "last_confidence": 0.9097973704338074,
+      "last_seen": 1793456164.407792
+    },
+    "builder_wall_word": {
+      "x": 1015,
+      "y": 363,
+      "count": 6,
+      "last_confidence": 0.9911699891090393,
+      "last_seen": 1792575539.1678872
+    },
+    "build_wall_upgrade_more": {
+      "x": 466,
+      "y": 564,
+      "count": 92,
+      "last_confidence": 0.9591038227081299,
+      "last_seen": 1793454550.5376031
+    },
+    "wall_confirm_okay": {
+      "x": 755,
+      "y": 467,
+      "count": 59,
+      "last_confidence": 0.9999325275421143,
+      "last_seen": 1793454504.5437694
+    },
+    "build_wall_remove_1": {
+      "x": 196,
+      "y": 560,
+      "count": 59,
+      "last_confidence": 0.9012081027030945,
+      "last_seen": 1793454498.4329436
+    },
+    "build_wall_add_10": {
+      "x": 388,
+      "y": 561,
+      "count": 68,
+      "last_confidence": 0.7823987603187561,
+      "last_seen": 1793454498.5281212
+    },
+    "build_wall_add_1": {
+      "x": 476,
+      "y": 560,
+      "count": 66,
+      "last_confidence": 0.8254414796829224,
+      "last_seen": 1793454498.6510906
+    },
+    "build_wall_upgrade_gold": {
+      "x": 604,
+      "y": 588,
+      "count": 39,
+      "last_confidence": 1.0,
+      "last_seen": 1792769896.9198523
+    },
+    "build_wall_upgrade_elixir": {
+      "x": 736,
+      "y": 588,
+      "count": 39,
+      "last_confidence": 0.9999997615814209,
+      "last_seen": 1792769896.9963372
+    },
+    "attack_button": {
+      "x": 80,
+      "y": 642,
+      "count": 476,
+      "last_confidence": 0.9094337224960327,
+      "last_seen": 1793492904.9149952
+    },
+    "find_match_button": {
+      "x": 218,
+      "y": 545,
+      "count": 97,
+      "last_confidence": 0.9658920168876648,
+      "last_seen": 1793370014.1672087
+    },
+    "army_attack_button": {
+      "x": 1132,
+      "y": 643,
+      "count": 115,
+      "last_confidence": 0.9909815192222595,
+      "last_seen": 1793492751.265804
+    },
+    "next_button": {
+      "x": 1166,
+      "y": 540,
+      "count": 968,
+      "last_confidence": 0.9405617117881775,
+      "last_seen": 1793492763.2586613
+    },
+    "end_battle_button": {
+      "x": 91,
+      "y": 565,
+      "count": 1206,
+      "last_confidence": 0.993995189666748,
+      "last_seen": 1793492888.1167753
+    },
+    "buildings_panel_close_x": {
+      "x": 1240,
+      "y": 35,
+      "count": 15,
+      "last_confidence": 0.9617723226547241,
+      "last_seen": 1793369641.7124922
+    },
+    "wall_upgrade_more": {
+      "x": 638,
+      "y": 586,
+      "count": 3,
+      "last_confidence": 0.9643524885177612,
+      "last_seen": 1792842107.8273892
+    },
+    "wall_select_row": {
+      "x": 340,
+      "y": 594,
+      "count": 55,
+      "last_confidence": 0.9071844220161438,
+      "last_seen": 1793454550.671538
+    },
+    "modal_close_x": {
+      "x": 1131,
+      "y": 56,
+      "count": 2,
+      "last_confidence": 0.9896489381790161,
+      "last_seen": 1793258287.028064
+    },
+    "star_bonus_okay": {
+      "x": 766,
+      "y": 399,
+      "count": 9,
+      "last_confidence": 0.7167224287986755,
+      "last_seen": 1793492591.0053396
+    }
+  },
+  "learned_wall_costs": {},
+  "learned_upgrades_catalog": {},
+  "max_seen_storages": {
+    "gold": 5504500,
+    "elixir": 5503000,
+    "dark_elixir": 100000
+  },
+  "total_learning_events": 6890,
+  "last_updated": 1793492904.9153326
+}

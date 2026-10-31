@@ -1,0 +1,112 @@
+{
+  "definitions": {
+    "town_hall": {
+      "name": "Town Hall",
+      "role": "CORE_TARGET",
+      "priority": 5,
+      "description": "Vats containing stored gold. Primary objective for gold farming.",
+      "notes": ""
+    },
+    "clan_castle": {
+      "name": "Clan Castle",
+      "role": "CORE_DEFENSE",
+      "priority": 9,
+      "description": "Holds defensive clan troops and treasury resources.",
+      "notes": "Lure defensive troops or trigger early with high HP troops."
+    },
+    "gold_storage": {
+      "name": "Gold Storage",
+      "role": "HIGH_VALUE_LOOT",
+      "priority": 5,
+      "description": "Vats containing stored gold. Primary objective for gold farming.",
+      "notes": ""
+    },
+    "elixir_storage": {
+      "name": "Elixir Storage",
+      "role": "HIGH_VALUE_LOOT",
+      "priority": 8,
+      "description": "Glass vats containing stored elixir. Essential for army training.",
+      "notes": "High hitpoint loot target."
+    },
+    "dark_elixir_storage": {
+      "name": "Dark Elixir Storage",
+      "role": "CRITICAL_LOOT",
+      "priority": 10,
+      "description": "Deep black rectangular storage holding Dark Elixir for heroes.",
+      "notes": "Highest priority resource target for hero upgrades."
+    },
+    "gold_mine": {
+      "name": "Gold Mine",
+      "role": "PERIPHERY_LOOT",
+      "priority": 5,
+      "description": "Vats containing stored gold. Primary objective for gold farming.",
+      "notes": ""
+    },
+    "elixir_collector": {
+      "name": "Elixir Collector",
+      "role": "PERIPHERY_LOOT",
+      "priority": 6,
+      "description": "Pumps elixir from the ground on perimeter.",
+      "notes": "Usually on outer ring, high loot reward when uncollected."
+    },
+    "dark_elixir_drill": {
+      "name": "Dark Elixir Drill",
+      "role": "PERIPHERY_LOOT",
+      "priority": 7,
+      "description": "Extracts dark elixir on base edges.",
+      "notes": "Top value collector target."
+    },
+    "eagle_artillery": {
+      "name": "Eagle Artillery",
+      "role": "HEAVY_SPLASH_DEFENSE",
+      "priority": 9,
+      "description": "Long-range map-wide defense activated after 180-200 housing spaces deployed.",
+      "notes": "Avoid triggering too early with mass deployment."
+    },
+    "inferno_tower": {
+      "name": "Inferno Tower",
+      "role": "HIGH_DAMAGE_DEFENSE",
+      "priority": 9,
+      "description": "Melts tanks (single target) or fries swarms (multi-target).",
+      "notes": "Freeze spell priority target."
+    },
+    "x_bow": {
+      "name": "X-Bow",
+      "role": "RAPID_FIRE_DEFENSE",
+      "priority": 7,
+      "description": "Rapid-fire mechanical defense, ground or air-and-ground.",
+      "notes": "Long range defensive zone."
+    },
+    "air_defense": {
+      "name": "Air Defense",
+      "role": "ANTI_AIR_DEFENSE",
+      "priority": 5,
+      "description": "Vats containing stored gold. Primary objective for gold farming.",
+      "notes": ""
+    },
+    "mortar": {
+      "name": "Mortar",
+      "role": "SPLASH_DEFENSE",
+      "priority": 7,
+      "description": "Fires explosive shells killing barch/goblins in clusters.",
+      "notes": "Blind spot directly around base."
+    },
+    "wizard_tower": {
+      "name": "Wizard Tower",
+      "role": "SPLASH_DEFENSE",
+      "priority": 5,
+      "description": "Vats containing stored gold. Primary objective for gold farming.",
+      "notes": ""
+    },
+    "red_boundary": {
+      "name": "Red Boundary Line",
+      "role": "DEPLOYMENT_BORDER",
+      "priority": 5,
+      "description": "Red deployment forbidden line.",
+      "notes": "User-marked on coc_1791871840296_00043.jpg"
+    }
+  },
+  "annotations_history": [],
+  "total_definitions": 15,
+  "total_user_annotations": 0
+}

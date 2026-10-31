@@ -1,0 +1,99 @@
+general:
+  bot_mode: BOTH
+emulator:
+  type: MEmu
+  adb_host: 127.0.0.1
+  adb_port: 21503
+  custom_adb_path: D:\Program Files\Microvirt\MEmu\adb.exe
+  window_title_pattern: MEmu
+  target_resolution:
+    width: 1280
+    height: 720
+    dpi: 160
+matchmaking:
+  min_gold: 380000
+  min_elixir: 400000
+  min_dark_elixir: 500
+  match_logic: AND
+  only_dead_bases: false
+  max_search_skips: 100
+combat:
+  deployment_pattern: ADAPTIVE_SMART
+  ai_tactics:
+    enabled: true
+    strategy: LOOT_FIRST
+    auto_record_sessions: false
+  deplete_troops: true
+  taps_per_troop_card: 10
+  troop_slots_count: 2
+  skip_empty_slots: true
+  hero_slots_count: 2
+  deploy_heroes: true
+  hero_ability_delay: 15
+  deploy_all_spells: true
+  spell_slots_count: 3
+  auto_zoom_out: true
+  battle_duration_seconds: 90
+  early_surrender_loot_percent: 85
+  deploy_spells: true
+village_profile:
+  player_tag: '#G9JGYV2CL'
+  api_token: 86m8g826
+  json_path: config/village_data.json
+  wall_strategy: CHEAPEST_FIRST
+  total_builders: 3
+storages:
+  max_gold_capacity: 5504500
+  max_elixir_capacity: 5503000
+  max_dark_elixir_capacity: 100000
+wall_dump:
+  enabled: true
+  storage_full_percentage: 80
+  stop_if_builders_busy: true
+  keep_gold_reserve: 2000
+  keep_elixir_reserve: 0
+  upgrade_resource_priority: BOTH
+  max_walls_per_cycle: 50
+  max_dump_spend_percent: 100
+  repeat_until_depleted: true
+  dump_trigger_mode: EVERY_N_ATTACKS
+  dump_every_n_attacks: 5
+  max_storage_capacity: 5503000
+  wall_strategy: CHEAPEST_FIRST
+maintenance:
+  enabled: false
+  auto_quick_train: true
+  active_recipe_name: Sneaky_Goblins_Farming
+  quick_train_slot: 1
+  auto_collect_mines: true
+  auto_clear_obstacles: false
+  auto_training_potion: false
+  auto_clock_tower: false
+  clan:
+    auto_request_troops: true
+    request_interval_minutes: 10
+    request_message: Any farming troops or siege machines please!
+    auto_donate: true
+    donate_keywords:
+    - any
+    - farm
+    - arch
+    - goblin
+humanization:
+  click_jitter_radius: 5
+  tap_delay_min: 0.12
+  tap_delay_max: 0.32
+  enable_session_breaks: true
+  session_length_minutes: 90
+  break_length_minutes: 25
+  enable_user_intervention: false
+  user_idle_resume_seconds: 0.8
+auto_stop:
+  enabled: false
+  hours: 2
+  minutes: 0
+  action: JUST_STOP
+research:
+  enabled: false
+  preferred_resource: ELIXIR
+  auto_potion_boost: false

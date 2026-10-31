@@ -1,0 +1,19 @@
+path: E:/Coc farming bot/ai_data
+train: images
+val: images
+names:
+  0: town_hall
+  1: clan_castle
+  2: gold_storage
+  3: elixir_storage
+  4: dark_elixir_storage
+  5: gold_mine
+  6: elixir_collector
+  7: dark_elixir_drill
+  8: eagle_artillery
+  9: inferno_tower
+  10: x_bow
+  11: air_defense
+  12: mortar
+  13: wizard_tower
+  14: red_boundary
