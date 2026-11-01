@@ -641,6 +641,14 @@ class BotStateMachine:
             self.set_state(BotState.VILLAGE_UNDER_ATTACK)
             return
 
+        # Check for any modal popup / dialog (e.g. League Overview, Events, News, Chests)
+        modal_pos = self.detector.check_modal_popup(frame)
+        if modal_pos:
+            print(f"[HomeVillage] Modal popup / dialog detected on screen! Dismissing at {modal_pos}...")
+            self.adb.tap(modal_pos[0], modal_pos[1])
+            self.sleep_interruptible(1.0)
+            frame = self.capture.get_frame(target_size=(1280, 720))
+
         # Check for Star Bonus / League Reward popup modal
         star_pos = self.detector.check_star_bonus_popup(frame)
         if star_pos:
@@ -656,6 +664,13 @@ class BotStateMachine:
             or self.detector.find_template(frame, "build_button", threshold=0.58) is not None
         )
         if not has_home_hud:
+            # Check if an unexpected modal popup is covering the screen
+            modal_pos = self.detector.check_modal_popup(frame)
+            if modal_pos:
+                print(f"[HomeVillage] Screen obscured by modal popup. Dismissing at {modal_pos}...")
+                self.adb.tap(modal_pos[0], modal_pos[1])
+                self.sleep_interruptible(1.0)
+                return
             active_screen = self.ocr.detect_screen(frame) if self.ocr else "HOME_VILLAGE"
             if active_screen in ["VILLAGE_UNDER_ATTACK", "DEFENSE_FINISHED"]:
                 print("[HomeVillage] Screen is live defense replay. Switching to VILLAGE_UNDER_ATTACK.")
@@ -852,7 +867,15 @@ class BotStateMachine:
             self.adb.tap_empty_grass()
             self.sleep_interruptible(0.6)
 
+            # Safeguard: Check if any unexpected popup/modal dialog opened after wall batch
             frame_after = self.capture.get_frame(target_size=(1280, 720))
+            modal_chk = self.detector.check_modal_popup(frame_after)
+            if modal_chk:
+                print(f"[WallUpgrader] Unexpected modal dialog detected! Dismissing at {modal_chk}...")
+                self.adb.tap(modal_chk[0], modal_chk[1])
+                self.sleep_interruptible(0.8)
+                frame_after = self.capture.get_frame(target_size=(1280, 720))
+
             storages_after = self.ocr.read_village_storages(frame_after)
 
             # Avoid false zeros if screen was mid-transition or HUD closing

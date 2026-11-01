@@ -152,34 +152,33 @@ class WallUpgrader:
 
     def _close_menus(self):
         """Safely dismisses any open menus, dialogs, or panels without clicking storage bars or pressing back."""
-        self.adb.tap_empty_grass()
-        time.sleep(0.3)
         frame = self.capture.get_frame(target_size=(1280, 720))
         if frame is not None:
+            # Check for any modal popup first (League Overview, News, Events, etc.)
+            modal_x = self.detector.check_modal_popup(frame)
+            if modal_x:
+                print(f"[WallUpgrader] Dismissing open modal popup at {modal_x}...")
+                self.adb.tap(modal_x[0], modal_x[1])
+                time.sleep(0.4)
+                return
+
             # Check for Star Bonus modal Okay button
             star_btn = self.detector.check_star_bonus_popup(frame)
             if star_btn:
                 self.adb.tap(star_btn[0], star_btn[1])
                 time.sleep(0.4)
+                return
 
-            # Check for modal close X (e.g. Cardboard chest / event modal)
-            modal_x = self.detector.check_modal_popup(frame)
-            if modal_x:
-                self.adb.tap(modal_x[0], modal_x[1])
-                time.sleep(0.3)
-
+            # Check for drawer panel close X
             panel_x = self.detector.find_template(frame, "buildings_panel_close_x", threshold=0.75)
             if panel_x:
                 self.adb.tap(panel_x[0], panel_x[1])
                 time.sleep(0.3)
-            else:
-                close_x = frame[15:55, 1220:1265]
-                if close_x.size > 0 and np.sum((close_x[:, :, 2] > 165) & (close_x[:, :, 1] < 75) & (close_x[:, :, 0] < 75)) >= 20:
-                    self.adb.tap(1240, 35)
-                    time.sleep(0.3)
-                else:
-                    self.adb.tap_empty_grass()
-                    time.sleep(0.2)
+                return
+
+        # Deselect any entity by tapping safe top perimeter forest
+        self.adb.tap_empty_grass()
+        time.sleep(0.2)
 
     def _is_build_drawer_open(self, frame):
         """Verifies if the Build / Builder suggestions drawer is currently open on the right."""

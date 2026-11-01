@@ -1562,18 +1562,11 @@ class AttackEngine:
                 time.sleep(1.2)
                 continue
 
-            # 5. Dismiss any open modal dialog (Exit Game, Reinforcements, etc.)
-            cancel_btn = self.detector.find_template(frame, "modal_cancel_btn", threshold=0.68)
-            if cancel_btn:
-                print(f"[AttackEngine] Dismissing popup modal at {cancel_btn}...")
-                self.adb.tap(cancel_btn[0], cancel_btn[1])
-                time.sleep(0.6)
-                continue
-
-            close_x = self.detector.find_template(frame, "modal_close_x", threshold=0.70)
-            if close_x:
-                print(f"[AttackEngine] Dismissing close X at {close_x}...")
-                self.adb.tap(close_x[0], close_x[1])
+            # 5. Dismiss any open modal dialog (Exit Game, Reinforcements, League Overview, etc.)
+            modal_btn = self.detector.check_modal_popup(frame)
+            if modal_btn:
+                print(f"[AttackEngine] Dismissing popup modal at {modal_btn}...")
+                self.adb.tap(modal_btn[0], modal_btn[1])
                 time.sleep(0.6)
                 continue
 

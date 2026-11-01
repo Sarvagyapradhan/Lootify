@@ -321,19 +321,20 @@ class UIDetector:
         if frame.shape[:2] != (720, 1280):
             frame = cv2.resize(frame, (1280, 720))
 
-        # Disconnection modals heavily darken the background (vignette / modal backdrop)
-        if np.mean(frame) > 55:
+        # Disqualify immediately if active home village attack or build buttons are visible
+        if self.find_template(frame, "attack_button", threshold=0.55) or self.find_template(frame, "build_button", threshold=0.58):
             return None
 
         # 1. Template match for 'TRY AGAIN' button
-        if "try_again_btn" in self.templates:
-            tmpl = self.templates["try_again_btn"]
-            res = cv2.matchTemplate(frame, tmpl, cv2.TM_CCOEFF_NORMED)
-            _, max_v, _, max_loc = cv2.minMaxLoc(res)
-            if max_v >= 0.72:
-                btn_w = tmpl.shape[1]
-                btn_h = tmpl.shape[0]
-                return (max_loc[0] + btn_w // 2, max_loc[1] + btn_h // 2)
+        for t_name in ["connection_lost_try_again", "try_again_btn"]:
+            if t_name in self.templates:
+                tmpl = self.templates[t_name]
+                res = cv2.matchTemplate(frame, tmpl, cv2.TM_CCOEFF_NORMED)
+                _, max_v, _, max_loc = cv2.minMaxLoc(res)
+                if max_v >= 0.70:
+                    btn_w = tmpl.shape[1]
+                    btn_h = tmpl.shape[0]
+                    return (max_loc[0] + btn_w // 2, max_loc[1] + btn_h // 2)
 
         # 2. Template match for 'Connection lost' title
         if "connection_lost_title" in self.templates:
@@ -341,7 +342,24 @@ class UIDetector:
             res_t = cv2.matchTemplate(frame, tmpl_t, cv2.TM_CCOEFF_NORMED)
             _, max_t, _, _ = cv2.minMaxLoc(res_t)
             if max_t >= 0.72:
-                return (334, 462)
+                return (676, 530)
+
+        # 3. Color & geometry check for teal 'TRY AGAIN' text inside center dark gray box
+        # Dark gray box in center: x: 200..1080, y: 180..580
+        center_crop = frame[180:580, 200:1080]
+        if center_crop.size > 0:
+            b, g, r = cv2.split(center_crop)
+            teal_pts = (g > 110) & (b > 100) & (r < 90)
+            if np.sum(teal_pts) >= 40:
+                gray_pts = (r > 40) & (r < 110) & (abs(r.astype(int) - g.astype(int)) < 15) & (abs(r.astype(int) - b.astype(int)) < 15)
+                # On connection lost dialog, gray points dominate the box (> 50,000 px)
+                if np.sum(gray_pts) >= 45000:
+                    pts = np.argwhere(teal_pts)
+                    min_y, min_x = pts.min(axis=0)
+                    max_y, max_x = pts.max(axis=0)
+                    cx = 200 + (min_x + max_x) // 2
+                    cy = 180 + (min_y + max_y) // 2
+                    return (cx, cy)
 
         return None
 
@@ -413,12 +431,14 @@ class UIDetector:
             frame = cv2.resize(frame, (1280, 720))
 
         # Check template match for 'Live Replay'
-        if "live_replay" in self.templates:
-            tmpl = self.templates["live_replay"]
-            roi = frame[560:640, 1040:1260]
-            res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
-            if cv2.minMaxLoc(res)[1] >= 0.70:
-                return True
+        for tmpl_key in ["live_replay_badge", "live_replay"]:
+            if tmpl_key in self.templates:
+                tmpl = self.templates[tmpl_key]
+                roi = frame[550:700, 950:1280]
+                if roi.shape[0] >= tmpl.shape[0] and roi.shape[1] >= tmpl.shape[1]:
+                    res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
+                    if cv2.minMaxLoc(res)[1] >= 0.65:
+                        return True
 
         # Check red text pixels in Live Replay area (R > 140, G < 60, B < 60)
         c_lr = frame[580:625, 1050:1250]
@@ -455,14 +475,16 @@ class UIDetector:
             frame = cv2.resize(frame, (1280, 720))
 
         # 1. Template match
-        if "defense_return_home" in self.templates:
-            tmpl = self.templates["defense_return_home"]
-            roi = frame[590:720, 0:170]
-            res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
-            val, max_val, _, max_loc = cv2.minMaxLoc(res)
-            if max_val >= 0.65:
-                h, w = tmpl.shape[:2]
-                return (max_loc[0] + w // 2, 590 + max_loc[1] + h // 2)
+        for tmpl_key in ["defense_return_home_btn", "defense_return_home"]:
+            if tmpl_key in self.templates:
+                tmpl = self.templates[tmpl_key]
+                roi = frame[580:720, 0:200]
+                if roi.shape[0] >= tmpl.shape[0] and roi.shape[1] >= tmpl.shape[1]:
+                    res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
+                    val, max_val, _, max_loc = cv2.minMaxLoc(res)
+                    if max_val >= 0.65:
+                        h, w = tmpl.shape[:2]
+                        return (max_loc[0] + w // 2, 580 + max_loc[1] + h // 2)
 
         # 2. Color profile of Return Home button (cream frame + villager face)
         c_rh = frame[600:720, 10:150]
@@ -871,23 +893,71 @@ class UIDetector:
 
     def check_modal_popup(self, frame):
         """
-        Detects if an unexpected modal popup (like 'Add Reinforcements' or other dialog) is open.
+        Detects if an unexpected modal popup (e.g. League Overview, Events, News,
+        'Add Reinforcements', 'All Builders Busy', or custom dialog) is open.
         Returns the (x, y) coordinate of the Cancel or Close button if found, else None.
         """
-        if frame is None:
+        if frame is None or frame.size == 0:
             return None
-        # 1. Cancel button on Reinforcements modal
+        if frame.shape[:2] != (720, 1280):
+            frame = cv2.resize(frame, (1280, 720))
+
+        # 1. Red close square button with white 'X' (e.g. League Overview, Events, News, Chests)
+        # Template match
+        pos_red = self.find_template(frame, "modal_close_red_x", threshold=0.72)
+        if pos_red and pos_red[1] <= 240 and pos_red[0] >= 750:
+            return pos_red
+
+        # Geometric & color fallback for Red 'X' button in upper-right quadrant
+        roi_upper = frame[30:240, 750:1265]
+        if roi_upper.size > 0:
+            b_u, g_u, r_u = cv2.split(roi_upper)
+            red_mask = (r_u > 160) & (g_u < 75) & (b_u < 75)
+            if np.sum(red_mask) >= 100:
+                pts = np.argwhere(red_mask)
+                min_y, min_x = pts.min(axis=0)
+                max_y, max_x = pts.max(axis=0)
+                h_b = max_y - min_y
+                w_b = max_x - min_x
+                if 16 <= w_b <= 70 and 16 <= h_b <= 70:
+                    btn_crop = roi_upper[min_y:max_y+1, min_x:max_x+1]
+                    b_c, g_c, r_c = cv2.split(btn_crop)
+                    white_pts = np.sum((r_c > 190) & (g_c > 190) & (b_c > 190))
+                    if white_pts >= 15:
+                        cx = 750 + (min_x + max_x) // 2
+                        cy = 30 + (min_y + max_y) // 2
+                        return (cx, cy)
+
+        # 2. General modal_close_x template
+        close_x = self.find_template(frame, "modal_close_x", threshold=0.72)
+        if close_x and close_x[1] <= 250:
+            return close_x
+
+        # 3. Buildings panel / Drawer close X
+        panel_x = self.find_template(frame, "buildings_panel_close_x", threshold=0.75)
+        if panel_x:
+            return panel_x
+
+        # 4. Cancel button on Reinforcements / Troop request modal
         cancel_pos = self.find_template(frame, "modal_cancel_btn", threshold=0.70)
         if cancel_pos:
             return cancel_pos
-        # 2. Busy modal close X
+
+        # 5. Busy modal close X
         busy_pos = self.find_template(frame, "all_builders_busy", threshold=0.75)
         if busy_pos:
             return self.get_calibrated_coord("busy_close_x") or (702, 300)
-        # 3. Star Bonus received or League reward modal
+
+        # 6. Star Bonus received or League reward modal
         star_pos = self.check_star_bonus_popup(frame)
         if star_pos:
             return star_pos
+
+        # 7. Building upgrade modal close button
+        bldg_x = self.check_building_upgrade_modal(frame)
+        if bldg_x:
+            return bldg_x
+
         return None
 
     def check_star_bonus_popup(self, frame):

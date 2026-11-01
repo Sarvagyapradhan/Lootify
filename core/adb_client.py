@@ -230,12 +230,13 @@ class ADBController:
 
     def tap_empty_grass(self, frame=None):
         """
-        Taps safely on neutral empty grass/forest to deselect any open building menus.
-        Applies natural humanized spatial dispersion around the outer perimeter forest
-        at (90 ± 18, 260 ± 18) well outside the village grid.
+        Taps safely on neutral empty grass/forest to deselect any open building menus or panels.
+        Applies natural humanized spatial dispersion around the top perimeter forest
+        at (300 ± 12, 42 ± 8), strictly away from the Player Profile/Trophies HUD (x <= 160),
+        Builder HUD (x >= 490), and Build drawer (x >= 935).
         """
-        target_x = 90 + random.randint(-18, 18)
-        target_y = 260 + random.randint(-18, 18)
+        target_x = 300 + random.randint(-12, 12)
+        target_y = 42 + random.randint(-8, 8)
         return self.tap(target_x, target_y, min_delay=0.06, max_delay=0.12)
 
     def swipe(self, x1, y1, x2, y2, duration_ms=None):
