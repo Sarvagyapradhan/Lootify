@@ -80,16 +80,16 @@
     "army_attack_button": {
       "x": 1132,
       "y": 643,
-      "count": 115,
-      "last_confidence": 0.9909815192222595,
-      "last_seen": 1793492751.265804
+      "count": 116,
+      "last_confidence": 0.993681013584137,
+      "last_seen": 1793492908.9482088
     },
     "next_button": {
       "x": 1166,
       "y": 540,
-      "count": 968,
-      "last_confidence": 0.9405617117881775,
-      "last_seen": 1793492763.2586613
+      "count": 976,
+      "last_confidence": 0.9405727386474609,
+      "last_seen": 1793492965.149221
     },
     "end_battle_button": {
       "x": 91,
@@ -127,11 +127,11 @@
       "last_seen": 1793258287.028064
     },
     "star_bonus_okay": {
-      "x": 766,
-      "y": 399,
-      "count": 9,
-      "last_confidence": 0.7167224287986755,
-      "last_seen": 1793492591.0053396
+      "x": 767,
+      "y": 343,
+      "count": 10,
+      "last_confidence": 0.7169404029846191,
+      "last_seen": 1793492908.1249952
     }
   },
   "learned_wall_costs": {},
@@ -141,6 +141,6 @@
     "elixir": 5503000,
     "dark_elixir": 100000
   },
-  "total_learning_events": 6890,
-  "last_updated": 1793492904.9153326
+  "total_learning_events": 6900,
+  "last_updated": 1793492965.1497352
 }
