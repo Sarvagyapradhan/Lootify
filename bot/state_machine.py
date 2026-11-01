@@ -126,6 +126,85 @@ class BotStateMachine:
             estimated_raid_loot=raid_loot
         )
 
+    def check_base_meets_raid_criteria(self, gold, elixir, dark_elixir):
+        """
+        Evaluates whether an enemy base satisfies the user's matchmaking raid criteria.
+        Supports:
+        1. TOTAL_SUM: (gold + elixir) >= min_total_loot (Default: 600,000 / 6 lakh for dead villages)
+        2. OR: gold >= min_gold OR elixir >= min_elixir
+        3. AND: gold >= min_gold AND elixir >= min_elixir
+        4. DE_ONLY: dark_elixir >= min_dark_elixir
+        5. SMART_BALANCED: Hybrid - either total sum >= min_total OR individual resources meet target
+        6. Independent Dark Elixir trigger: If allow_de_independent=True and dark_elixir >= min_dark_elixir
+        7. Resource Preference: PREFER_GOLD, PREFER_ELIXIR, PREFER_DE, BALANCED
+        Returns (meets_criteria: bool, reason_str: str)
+        """
+        mm_cfg = self.cfg.get("matchmaking", {})
+        min_g = mm_cfg.get("min_gold", 300000)
+        min_e = mm_cfg.get("min_elixir", 300000)
+        min_de = mm_cfg.get("min_dark_elixir", 1500)
+        min_total = mm_cfg.get("min_total_loot", 600000)  # 6 lakh default
+        logic = mm_cfg.get("match_logic", "TOTAL_SUM").upper()
+        require_de = mm_cfg.get("require_dark_elixir", False)
+        allow_de_indep = mm_cfg.get("allow_de_independent", True)
+        pref = mm_cfg.get("resource_preference", "BALANCED").upper()
+
+        total_loot = gold + elixir
+
+        # Independent Dark Elixir raid trigger: If a base has huge Dark Elixir, raid it!
+        if allow_de_indep and min_de > 0 and dark_elixir >= min_de:
+            if gold > 0 or elixir > 0:
+                return True, f"Dark Elixir target reached (DE: {dark_elixir:,} >= {min_de:,})"
+
+        meets_primary = False
+        reason = ""
+
+        if "TOTAL" in logic or "SUM" in logic:
+            if total_loot >= min_total:
+                meets_primary = True
+                reason = f"Dead Village Combined Loot ({total_loot:,} >= {min_total:,} [6 Lakh Target])"
+
+        elif "AND" in logic:
+            if gold >= min_g and elixir >= min_e:
+                meets_primary = True
+                reason = f"Both Gold ({gold:,} >= {min_g:,}) AND Elixir ({elixir:,} >= {min_e:,})"
+
+        elif "OR" in logic:
+            if pref == "PREFER_GOLD":
+                if gold >= min_g or (elixir >= min_e * 1.3):
+                    meets_primary = True
+                    reason = f"Preferred Gold ({gold:,} >= {min_g:,})"
+            elif pref == "PREFER_ELIXIR":
+                if elixir >= min_e or (gold >= min_g * 1.3):
+                    meets_primary = True
+                    reason = f"Preferred Elixir ({elixir:,} >= {min_e:,})"
+            elif pref == "PREFER_DE":
+                if dark_elixir >= min_de or gold >= min_g or elixir >= min_e:
+                    meets_primary = True
+                    reason = f"Preferred DE / Resource (DE: {dark_elixir:,}, G: {gold:,}, E: {elixir:,})"
+            else:
+                if gold >= min_g or elixir >= min_e:
+                    meets_primary = True
+                    reason = f"Gold ({gold:,} >= {min_g:,}) OR Elixir ({elixir:,} >= {min_e:,})"
+
+        elif "DE" in logic:
+            if dark_elixir >= min_de:
+                meets_primary = True
+                reason = f"Dark Elixir Only ({dark_elixir:,} >= {min_de:,})"
+
+        else:  # SMART_BALANCED
+            if total_loot >= min_total:
+                meets_primary = True
+                reason = f"Smart Total Loot ({total_loot:,} >= {min_total:,})"
+            elif gold >= min_g or elixir >= min_e:
+                meets_primary = True
+                reason = f"Smart Resource Threshold (Gold: {gold:,}, Elixir: {elixir:,})"
+
+        if require_de and dark_elixir < min_de:
+            return False, f"Dark Elixir below required minimum ({dark_elixir:,} < {min_de:,})"
+
+        return meets_primary, reason
+
     def pause(self):
         self.is_paused = not self.is_paused
         status = "PAUSED" if self.is_paused else "RESUMED"
@@ -248,22 +327,11 @@ class BotStateMachine:
                     e = loot.get("elixir", 0)
                     de = loot.get("dark_elixir", 0)
 
-                    mm_cfg = self.cfg.get("matchmaking", {})
-                    min_g = mm_cfg.get("min_gold", 450000)
-                    min_e = mm_cfg.get("min_elixir", 450000)
-                    min_de = mm_cfg.get("min_dark_elixir", 500)
-                    logic = mm_cfg.get("match_logic", "AND").upper()
-
-                    meets_criteria = False
-                    if logic == "AND":
-                        meets_criteria = (g >= min_g and e >= min_e and de >= min_de)
-                    else:
-                        meets_criteria = (g >= min_g or e >= min_e)
-
-                    print(f"[UserIntervention] Base Loot: Gold: {g:,} | Elixir: {e:,} | DE: {de:,} (Req: G>={min_g:,}, E>={min_e:,}, Logic={logic})")
+                    meets_criteria, reason = self.check_base_meets_raid_criteria(g, e, de)
+                    print(f"[UserIntervention] Base Loot: Gold: {g:,} | Elixir: {e:,} | DE: {de:,} (Evaluation: {reason})")
 
                     if meets_criteria:
-                        print("[UserIntervention] >>> Base meets raid criteria! Commencing attack... <<<")
+                        print(f"[UserIntervention] >>> Base meets raid criteria! Commencing attack... ({reason}) <<<")
                         self.set_state(BotState.ATTACKING)
                     else:
                         print("[UserIntervention] >>> Base loot below criteria. Skipping target and resuming matchmaking... <<<")
@@ -281,14 +349,9 @@ class BotStateMachine:
                         g = loot.get("gold", 0)
                         e = loot.get("elixir", 0)
                         de = loot.get("dark_elixir", 0)
-                        mm_cfg = self.cfg.get("matchmaking", {})
-                        min_g = mm_cfg.get("min_gold", 450000)
-                        min_e = mm_cfg.get("min_elixir", 450000)
-                        min_de = mm_cfg.get("min_dark_elixir", 500)
-                        logic = mm_cfg.get("match_logic", "AND").upper()
-                        meets_criteria = (g >= min_g and e >= min_e and de >= min_de) if logic == "AND" else (g >= min_g or e >= min_e)
+                        meets_criteria, _ = self.check_base_meets_raid_criteria(g, e, de)
                         if (g > 0 or e > 0) and not meets_criteria:
-                            print("[UserIntervention] Scouted base with low loot. Skipping target via Next button...")
+                            print("[UserIntervention] Scouted base below criteria. Skipping target via Next button...")
                             next_pos = self.detector.find_template(frame, "next_button", threshold=0.58) or (1166, 540)
                             self.adb.tap(next_pos[0], next_pos[1])
                             time.sleep(0.5)
@@ -1154,25 +1217,25 @@ class BotStateMachine:
             print(f"[Scanner] Target #{skips + 1}: Gold: {gold:,} | Elixir: {elixir:,} | Dark Elixir: {de:,}")
 
             meets_criteria = False
+            reason = ""
             if is_emergency_gold_raid:
                 # Emergency mode: cannot afford to skip! Attack Target #1 immediately to farm gold!
                 meets_criteria = (gold > 0 or elixir > 0 or de > 0)
+                reason = "EMERGENCY LOW-GOLD RAID"
                 if meets_criteria:
                     print(f"[Scanner] >>> EMERGENCY LOW-GOLD RAID! Attacking Target #{skips + 1} immediately (Gold: {gold:,}, Elixir: {elixir:,}) to recover gold balance! <<<")
             elif skips >= (search_limit - 1):
                 # Last affordable search skip reached! Attack this base to prevent running out of gold!
                 meets_criteria = (gold > 0 or elixir > 0)
+                reason = "LAST AFFORDABLE SKIP"
                 if meets_criteria:
                     print(f"[Scanner] >>> LAST AFFORDABLE SKIP REACHED (Target #{skips + 1})! Attacking to prevent zero-gold lockout (Gold: {gold:,}, Elixir: {elixir:,})! <<<")
             else:
-                if logic == "AND":
-                    meets_criteria = (gold >= min_g and elixir >= min_e and de >= min_de)
-                else:
-                    meets_criteria = (gold >= min_g or elixir >= min_e) and (de >= min_de)
+                meets_criteria, reason = self.check_base_meets_raid_criteria(gold, elixir, de)
 
-            if meets_criteria and (gold > 0 or elixir > 0):
+            if meets_criteria and (gold > 0 or elixir > 0 or de > 0):
                 if not is_emergency_gold_raid and skips < (search_limit - 1):
-                    print(f"[Scanner] >>> TARGET ACCEPTED! Meets criteria (Gold: {gold:,}, Elixir: {elixir:,}, DE: {de:,}) <<<")
+                    print(f"[Scanner] >>> TARGET ACCEPTED! Reason: {reason} (Gold: {gold:,}, Elixir: {elixir:,}, DE: {de:,}) <<<")
                 self.sleep_interruptible(0.2)
                 if is_manual_test:
                     print("[Manual Test] Target verified! Safely ending test and returning home...")

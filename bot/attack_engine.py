@@ -360,6 +360,23 @@ class AttackEngine:
 
         return False
 
+    def _is_hero_card_still_undeployed(self, frame, slot_x):
+        """
+        Checks if a hero card is still waiting in the army tray (undeployed).
+        In Clash of Clans, undeployed hero cards feature a distinct blue circular info 'i' badge
+        at the top-right corner of the card (y: 648..673, x: slot_x + 7..slot_x + 37).
+        When deployed, this badge disappears completely and the card shows health or ability aura.
+        Returns True if still undeployed in the tray, False if successfully deployed.
+        """
+        if frame is None or frame.size == 0:
+            return False
+        roi = frame[648:673, max(0, slot_x + 7):min(1280, slot_x + 37)]
+        if roi.size == 0:
+            return False
+        b, g, r = cv2.split(roi)
+        blue_info_pts = np.sum((b > 130) & (b > r * 1.35) & (b > g * 1.05))
+        return bool(blue_info_pts >= 35)
+
     def _is_select_different_unit_warning(self, frame):
         """Detects in-game red alert 'Select a different unit' displayed when tapping empty/depleted slot."""
         if frame is None or frame.size == 0:
@@ -972,6 +989,9 @@ class AttackEngine:
             # Deploy directly at verified drop_points on the attack flank (never scattered to far corners!)
             hero_candidates = drop_points if drop_points else [(640, 75)]
 
+            # Absolute safe outer beach points guaranteed outside any base red line
+            SAFE_CORNER_POINTS = [(640, 65), (1095, 320), (640, 580), (175, 340)]
+
             # Grand Warden deploys first alongside troops to immediately cover the dragons with his Life Aura:
             sorted_heroes = sorted(heroes, key=lambda h: 0 if "Warden" in h.get("name", "") else 1)
 
@@ -993,21 +1013,42 @@ class AttackEngine:
                 coord = h_info["coord"]
                 h_name = h_info["name"]
 
-                self.deployed_slots.add(slot_id)
                 print(f"[AttackEngine] Deploying {h_name} from slot {slot_id} at {coord}...")
 
-                # Tap dead center of card (y: 672, and cx - 10 for Warden to avoid Air/Ground toggle)
+                # Card selection: Quick double-tap at (y: 672, and cx - 10 for Warden to avoid Air/Ground toggle)
                 tap_x = coord[0] - 10 if "Warden" in h_name else coord[0]
                 tap_y = 672
-                self.adb.tap(tap_x, tap_y, min_delay=0.02, max_delay=0.03)
-                time.sleep(0.14)  # 140ms for card selection
+                self.adb.tap(tap_x, tap_y, min_delay=0.015, max_delay=0.025)
+                time.sleep(0.04)
+                self.adb.tap(tap_x, tap_y, min_delay=0.015, max_delay=0.025)
+                time.sleep(0.10)
 
-                # Send 3 rapid taps directly on the attack flank to guarantee deployment
-                flank_pt = hero_candidates[h_idx % len(hero_candidates)]
-                for _ in range(3):
-                    self.adb.tap(flank_pt[0] + random.randint(-6, 6), flank_pt[1] + random.randint(-6, 6), min_delay=0.02, max_delay=0.03)
-                    time.sleep(0.04)
-                time.sleep(0.06)
+                # Tap across 3 DIFFERENT points along the attack flank to guarantee deployment
+                # even if one point hits a building's red exclusion zone:
+                pts_to_try = [
+                    hero_candidates[h_idx % len(hero_candidates)],
+                    hero_candidates[(h_idx + 1) % len(hero_candidates)],
+                    hero_candidates[(h_idx + 2) % len(hero_candidates)]
+                ]
+                for pt in pts_to_try:
+                    self.adb.tap(pt[0] + random.randint(-5, 5), pt[1] + random.randint(-5, 5), min_delay=0.015, max_delay=0.025)
+                    time.sleep(0.035)
+
+                time.sleep(0.08)
+
+                # Fast Verification: Check if hero card is still waiting undeployed in the tray
+                f_ver = self.capture.get_frame(target_size=(1280, 720))
+                if f_ver is not None and self._is_hero_card_still_undeployed(f_ver, coord[0]):
+                    print(f"[AttackEngine] ⚠️ {h_name} blocked by red zone on flank! Relocating to alternate safe outer area...")
+                    self.adb.tap(tap_x, tap_y, min_delay=0.015, max_delay=0.025)
+                    time.sleep(0.08)
+                    alt_pt = SAFE_CORNER_POINTS[(h_idx + 1) % len(SAFE_CORNER_POINTS)]
+                    for _ in range(3):
+                        self.adb.tap(alt_pt[0] + random.randint(-8, 8), alt_pt[1] + random.randint(-8, 8), min_delay=0.015, max_delay=0.025)
+                        time.sleep(0.035)
+                    print(f"[AttackEngine] {h_name} successfully deployed to alternate outer grass at {alt_pt}.")
+
+                self.deployed_slots.add(slot_id)
 
                 # FAST ATTACK HERO ABILITY TIMINGS:
                 # - Grand Warden: T+5s (Early Eternal Tome shield as dragons enter defense range)
@@ -1091,7 +1132,7 @@ class AttackEngine:
                 print(f"[AttackEngine] Slot {slot_id} ({s_name}) 100% emptied ({casts_to_send} strikes).")
                 time.sleep(0.04)
 
-        # 4. Phase 4: Secondary Sweep for any genuinely undeployed troops or spells
+        # 4. Phase 4: Secondary Sweep for any genuinely undeployed troops, spells, or missed heroes
         # CRITICAL BUGFIX: Never re-tap slots that were already unleashed in Phase 1 (e.g. Dragons)!
         time.sleep(0.05)
         f_sweep = self.capture.get_frame(target_size=(1280, 720))
@@ -1100,6 +1141,25 @@ class AttackEngine:
                 print("[AttackEngine] 🏁 Battle results screen reached! Returning home cleanly...")
                 self.surrender_and_return_home()
                 return
+
+            # FAST INTELLIGENT HERO SWEEP: Check if any hero was somehow left sitting in the tray
+            if heroes:
+                SAFE_SWEEP_POINTS = [(640, 65), (1095, 320), (175, 340), (640, 580)]
+                for h_s in sorted_heroes:
+                    c_x = h_s["coord"][0]
+                    if self._is_hero_card_still_undeployed(f_sweep, c_x):
+                        h_n = h_s["name"]
+                        s_id = h_s["slot"]
+                        print(f"[AttackEngine] 🔄 HERO SWEEP: {h_n} (slot {s_id}) undeployed! Quick-deploying to safe outer grass...")
+                        tap_x = c_x - 10 if "Warden" in h_n else c_x
+                        self.adb.tap(tap_x, 672, min_delay=0.015, max_delay=0.025)
+                        time.sleep(0.06)
+                        sw_pt = SAFE_SWEEP_POINTS[s_id % len(SAFE_SWEEP_POINTS)]
+                        for _ in range(3):
+                            self.adb.tap(sw_pt[0] + random.randint(-8, 8), sw_pt[1] + random.randint(-8, 8), min_delay=0.015, max_delay=0.025)
+                            time.sleep(0.035)
+                        self.deployed_slots.add(s_id)
+                        print(f"[AttackEngine] ⚡ {h_n} successfully unleashed via Hero Sweep!")
 
             active_tray = self.scan_battle_tray(f_sweep)
             remaining_troops = [

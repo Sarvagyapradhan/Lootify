@@ -11,11 +11,15 @@ emulator:
     height: 720
     dpi: 160
 matchmaking:
-  min_gold: 380000
-  min_elixir: 400000
-  min_dark_elixir: 500
-  match_logic: AND
-  only_dead_bases: false
+  min_gold: 300000
+  min_elixir: 300000
+  min_dark_elixir: 1500
+  min_total_loot: 600000
+  match_logic: TOTAL_SUM
+  resource_preference: BALANCED
+  allow_de_independent: true
+  require_dark_elixir: false
+  only_dead_bases: true
   max_search_skips: 100
 combat:
   deployment_pattern: ADAPTIVE_SMART

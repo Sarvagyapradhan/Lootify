@@ -467,14 +467,52 @@ class ClashBotApp(ctk.CTk):
         # Card 1: Matchmaking Loot Filters
         c1 = ctk.CTkFrame(tab, fg_color=PANEL_DARK, corner_radius=12, border_width=1, border_color=CARD_BORDER)
         c1.pack(fill="x", pady=6)
-        ctk.CTkLabel(c1, text="🎯 Matchmaking Target Loot Filters", font=ctk.CTkFont(size=15, weight="bold"), text_color=ACCENT_GOLD).pack(anchor="w", padx=16, pady=(12, 8))
+        ctk.CTkLabel(c1, text="🎯 Matchmaking & Dead Village Loot Filters", font=ctk.CTkFont(size=15, weight="bold"), text_color=ACCENT_GOLD).pack(anchor="w", padx=16, pady=(12, 8))
+
+        # Search Logic Mode
+        row_logic = ctk.CTkFrame(c1, fg_color="transparent")
+        row_logic.pack(fill="x", padx=16, pady=4)
+        ctk.CTkLabel(row_logic, text="Search Logic Mode:", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
+        self.opt_match_logic = ctk.CTkOptionMenu(
+            row_logic,
+            values=[
+                "Total Sum (Gold + Elixir >= Min)",
+                "OR (Gold OR Elixir >= Min)",
+                "AND (Both Gold & Elixir >= Min)",
+                "Dark Elixir Only",
+                "Smart Balanced (Hybrid)"
+            ],
+            width=260,
+            font=ctk.CTkFont(size=12)
+        )
+        saved_logic = mm_cfg.get("match_logic", "TOTAL_SUM").upper()
+        if "AND" in saved_logic:
+            self.opt_match_logic.set("AND (Both Gold & Elixir >= Min)")
+        elif "OR" in saved_logic and "SUM" not in saved_logic and "TOTAL" not in saved_logic:
+            self.opt_match_logic.set("OR (Gold OR Elixir >= Min)")
+        elif "DE" in saved_logic:
+            self.opt_match_logic.set("Dark Elixir Only")
+        elif "SMART" in saved_logic:
+            self.opt_match_logic.set("Smart Balanced (Hybrid)")
+        else:
+            self.opt_match_logic.set("Total Sum (Gold + Elixir >= Min)")
+        self.opt_match_logic.pack(side="left", padx=8)
+
+        # Min Total Loot (Gold + Elixir sum, default 600,000 / 6 lakh)
+        row_tot = ctk.CTkFrame(c1, fg_color="transparent")
+        row_tot.pack(fill="x", padx=16, pady=4)
+        ctk.CTkLabel(row_tot, text="Min Total Loot (6 Lakh):", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
+        self.ent_min_total_loot = ctk.CTkEntry(row_tot, width=150)
+        self.ent_min_total_loot.insert(0, str(mm_cfg.get("min_total_loot", 600000)))
+        self.ent_min_total_loot.pack(side="left", padx=8)
+        ctk.CTkLabel(row_tot, text="Gold + Elixir sum (Dead Base Target)", text_color=TEXT_MUTED, font=ctk.CTkFont(size=11)).pack(side="left", padx=4)
 
         # Min Gold
         row_g = ctk.CTkFrame(c1, fg_color="transparent")
         row_g.pack(fill="x", padx=16, pady=4)
         ctk.CTkLabel(row_g, text="Minimum Gold:", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
         self.ent_min_gold = ctk.CTkEntry(row_g, width=150)
-        self.ent_min_gold.insert(0, str(mm_cfg.get("min_gold", 200000)))
+        self.ent_min_gold.insert(0, str(mm_cfg.get("min_gold", 300000)))
         self.ent_min_gold.pack(side="left", padx=8)
 
         # Min Elixir
@@ -482,7 +520,7 @@ class ClashBotApp(ctk.CTk):
         row_e.pack(fill="x", padx=16, pady=4)
         ctk.CTkLabel(row_e, text="Minimum Elixir:", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
         self.ent_min_elixir = ctk.CTkEntry(row_e, width=150)
-        self.ent_min_elixir.insert(0, str(mm_cfg.get("min_elixir", 200000)))
+        self.ent_min_elixir.insert(0, str(mm_cfg.get("min_elixir", 300000)))
         self.ent_min_elixir.pack(side="left", padx=8)
 
         # Min Dark Elixir
@@ -490,17 +528,39 @@ class ClashBotApp(ctk.CTk):
         row_de.pack(fill="x", padx=16, pady=4)
         ctk.CTkLabel(row_de, text="Minimum Dark Elixir:", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
         self.ent_min_de = ctk.CTkEntry(row_de, width=150)
-        self.ent_min_de.insert(0, str(mm_cfg.get("min_dark_elixir", 1000)))
+        self.ent_min_de.insert(0, str(mm_cfg.get("min_dark_elixir", 1500)))
         self.ent_min_de.pack(side="left", padx=8)
 
-        # Search Logic
-        row_logic = ctk.CTkFrame(c1, fg_color="transparent")
-        row_logic.pack(fill="x", padx=16, pady=4)
-        ctk.CTkLabel(row_logic, text="Search Logic:", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
-        self.seg_match_logic = ctk.CTkSegmentedButton(row_logic, values=["OR (Gold OR Elixir)", "AND (Both Required)"])
-        default_logic = "AND (Both Required)" if mm_cfg.get("match_logic", "OR").upper() == "AND" else "OR (Gold OR Elixir)"
-        self.seg_match_logic.set(default_logic)
-        self.seg_match_logic.pack(side="left", padx=8)
+        # Resource Preference
+        row_pref = ctk.CTkFrame(c1, fg_color="transparent")
+        row_pref.pack(fill="x", padx=16, pady=4)
+        ctk.CTkLabel(row_pref, text="Resource Preference:", width=180, anchor="w", font=ctk.CTkFont(size=13)).pack(side="left")
+        self.opt_resource_pref = ctk.CTkOptionMenu(
+            row_pref,
+            values=["Balanced (Equal Weight)", "Prefer Gold", "Prefer Elixir", "Prefer Dark Elixir"],
+            width=220,
+            font=ctk.CTkFont(size=12)
+        )
+        saved_pref = mm_cfg.get("resource_preference", "BALANCED").upper()
+        if "GOLD" in saved_pref:
+            self.opt_resource_pref.set("Prefer Gold")
+        elif "ELIXIR" in saved_pref and "DARK" not in saved_pref:
+            self.opt_resource_pref.set("Prefer Elixir")
+        elif "DARK" in saved_pref or "DE" in saved_pref:
+            self.opt_resource_pref.set("Prefer Dark Elixir")
+        else:
+            self.opt_resource_pref.set("Balanced (Equal Weight)")
+        self.opt_resource_pref.pack(side="left", padx=8)
+
+        # Dark Elixir Priority Switch
+        row_de_opts = ctk.CTkFrame(c1, fg_color="transparent")
+        row_de_opts.pack(fill="x", padx=16, pady=4)
+        self.sw_de_independent = ctk.CTkSwitch(row_de_opts, text="Attack if Dark Elixir Meets Target (DE Raid Priority)", font=ctk.CTkFont(size=12))
+        self.sw_de_independent.pack(side="left", padx=8)
+        if mm_cfg.get("allow_de_independent", True):
+            self.sw_de_independent.select()
+        else:
+            self.sw_de_independent.deselect()
 
         # Max Search Skips
         row_skips = ctk.CTkFrame(c1, fg_color="transparent")
@@ -1284,7 +1344,41 @@ class ClashBotApp(ctk.CTk):
             self.cfg["matchmaking"]["min_gold"] = int(self.ent_min_gold.get().replace(",", ""))
             self.cfg["matchmaking"]["min_elixir"] = int(self.ent_min_elixir.get().replace(",", ""))
             self.cfg["matchmaking"]["min_dark_elixir"] = int(self.ent_min_de.get().replace(",", ""))
-            self.cfg["matchmaking"]["match_logic"] = "AND" if "AND" in self.seg_match_logic.get() else "OR"
+            if hasattr(self, "ent_min_total_loot"):
+                self.cfg["matchmaking"]["min_total_loot"] = int(self.ent_min_total_loot.get().replace(",", ""))
+
+            # Logic Mode
+            if hasattr(self, "opt_match_logic"):
+                txt_l = self.opt_match_logic.get()
+                if "Total" in txt_l or "Sum" in txt_l:
+                    self.cfg["matchmaking"]["match_logic"] = "TOTAL_SUM"
+                elif "AND" in txt_l:
+                    self.cfg["matchmaking"]["match_logic"] = "AND"
+                elif "Dark" in txt_l:
+                    self.cfg["matchmaking"]["match_logic"] = "DE_ONLY"
+                elif "Smart" in txt_l:
+                    self.cfg["matchmaking"]["match_logic"] = "SMART_BALANCED"
+                else:
+                    self.cfg["matchmaking"]["match_logic"] = "OR"
+            elif hasattr(self, "seg_match_logic"):
+                self.cfg["matchmaking"]["match_logic"] = "AND" if "AND" in self.seg_match_logic.get() else "OR"
+
+            # Resource Preference
+            if hasattr(self, "opt_resource_pref"):
+                txt_p = self.opt_resource_pref.get()
+                if "Gold" in txt_p:
+                    self.cfg["matchmaking"]["resource_preference"] = "PREFER_GOLD"
+                elif "Dark" in txt_p:
+                    self.cfg["matchmaking"]["resource_preference"] = "PREFER_DE"
+                elif "Elixir" in txt_p:
+                    self.cfg["matchmaking"]["resource_preference"] = "PREFER_ELIXIR"
+                else:
+                    self.cfg["matchmaking"]["resource_preference"] = "BALANCED"
+
+            # DE Priority Switch
+            if hasattr(self, "sw_de_independent"):
+                self.cfg["matchmaking"]["allow_de_independent"] = (self.sw_de_independent.get() == 1)
+
             self.cfg["matchmaking"]["max_search_skips"] = int(self.ent_max_skips.get())
         except Exception:
             pass
