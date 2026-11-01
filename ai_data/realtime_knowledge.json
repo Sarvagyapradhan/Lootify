@@ -3,9 +3,9 @@
     "build_button": {
       "x": 1210,
       "y": 630,
-      "count": 3527,
-      "last_confidence": 0.9328792691230774,
-      "last_seen": 1793498196.2372653
+      "count": 3531,
+      "last_confidence": 0.9326181411743164,
+      "last_seen": 1793520390.4080517
     },
     "builder_wall_word": {
       "x": 1015,
@@ -17,37 +17,37 @@
     "build_wall_upgrade_more": {
       "x": 466,
       "y": 564,
-      "count": 100,
-      "last_confidence": 0.9618563652038574,
-      "last_seen": 1793498251.410929
+      "count": 108,
+      "last_confidence": 0.9592576026916504,
+      "last_seen": 1793520466.835703
     },
     "wall_confirm_okay": {
       "x": 755,
       "y": 467,
-      "count": 71,
-      "last_confidence": 0.9999879598617554,
-      "last_seen": 1793498263.6283
+      "count": 83,
+      "last_confidence": 0.9999362230300903,
+      "last_seen": 1793520505.5604045
     },
     "build_wall_remove_1": {
-      "x": 189,
+      "x": 186,
       "y": 564,
-      "count": 63,
-      "last_confidence": 0.9215218424797058,
-      "last_seen": 1793498253.5682814
+      "count": 67,
+      "last_confidence": 0.9148739576339722,
+      "last_seen": 1793520470.194438
     },
     "build_wall_add_10": {
-      "x": 343,
+      "x": 329,
       "y": 564,
-      "count": 72,
-      "last_confidence": 0.8819205164909363,
-      "last_seen": 1793498253.6671348
+      "count": 76,
+      "last_confidence": 0.8822534084320068,
+      "last_seen": 1793520470.3955288
     },
     "build_wall_add_1": {
-      "x": 468,
+      "x": 466,
       "y": 564,
-      "count": 70,
-      "last_confidence": 0.8822742700576782,
-      "last_seen": 1793498253.7437592
+      "count": 74,
+      "last_confidence": 0.8783909678459167,
+      "last_seen": 1793520470.588174
     },
     "build_wall_upgrade_gold": {
       "x": 604,
@@ -66,9 +66,9 @@
     "attack_button": {
       "x": 80,
       "y": 642,
-      "count": 588,
-      "last_confidence": 0.9999719858169556,
-      "last_seen": 1793499083.7825656
+      "count": 637,
+      "last_confidence": 0.9999992847442627,
+      "last_seen": 1793520237.8642097
     },
     "find_match_button": {
       "x": 218,
@@ -78,32 +78,32 @@
       "last_seen": 1793370014.1672087
     },
     "army_attack_button": {
-      "x": 1133,
+      "x": 1132,
       "y": 644,
-      "count": 133,
-      "last_confidence": 0.8692271709442139,
-      "last_seen": 1793499087.498217
+      "count": 138,
+      "last_confidence": 0.9929935336112976,
+      "last_seen": 1793519920.8771527
     },
     "next_button": {
       "x": 1166,
       "y": 540,
-      "count": 1173,
-      "last_confidence": 0.9405076503753662,
-      "last_seen": 1793499185.3355045
+      "count": 1214,
+      "last_confidence": 0.9404476284980774,
+      "last_seen": 1793519944.140233
     },
     "end_battle_button": {
       "x": 91,
       "y": 565,
-      "count": 2287,
-      "last_confidence": 0.9939787983894348,
-      "last_seen": 1793499304.558681
+      "count": 2647,
+      "last_confidence": 0.9940522909164429,
+      "last_seen": 1793520048.3907645
     },
     "buildings_panel_close_x": {
       "x": 1240,
       "y": 35,
-      "count": 15,
-      "last_confidence": 0.9617723226547241,
-      "last_seen": 1793369641.7124922
+      "count": 16,
+      "last_confidence": 0.8864530920982361,
+      "last_seen": 1793520377.8867018
     },
     "wall_upgrade_more": {
       "x": 638,
@@ -115,23 +115,23 @@
     "wall_select_row": {
       "x": 340,
       "y": 594,
-      "count": 63,
-      "last_confidence": 0.8643187880516052,
-      "last_seen": 1793498251.5386257
+      "count": 71,
+      "last_confidence": 0.8582874536514282,
+      "last_seen": 1793520466.9889386
     },
     "modal_close_x": {
-      "x": 1131,
-      "y": 56,
-      "count": 2,
-      "last_confidence": 0.9896489381790161,
-      "last_seen": 1793258287.028064
+      "x": 1234,
+      "y": 72,
+      "count": 16,
+      "last_confidence": 0.6874604225158691,
+      "last_seen": 1793500229.16498
     },
     "star_bonus_okay": {
       "x": 770,
-      "y": 193,
-      "count": 17,
-      "last_confidence": 0.7178723216056824,
-      "last_seen": 1793498278.6552963
+      "y": 188,
+      "count": 18,
+      "last_confidence": 0.7189542651176453,
+      "last_seen": 1793499327.8860986
     }
   },
   "learned_wall_costs": {},
@@ -141,6 +141,6 @@
     "elixir": 5503000,
     "dark_elixir": 100000
   },
-  "total_learning_events": 8360,
-  "last_updated": 1793499304.5591004
+  "total_learning_events": 8875,
+  "last_updated": 1793520505.5609884
 }

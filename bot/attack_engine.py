@@ -304,7 +304,7 @@ class AttackEngine:
         card_b = float(np.mean(card[:, :, 0]))
         card_g = float(np.mean(card[:, :, 1]))
         card_r = float(np.mean(card[:, :, 2]))
-        if card_b < 55 and card_g > 65 and (card_g > card_b * 1.4) and (card_b + card_r < 140):
+        if (card_b < 20 and card_g < 20 and card_r < 20) or (card_b < 55 and card_g > 65 and (card_g > card_b * 1.4) and (card_b + card_r < 140)):
             return True
 
         # 1. Darkness check - truly depleted cards in CoC are pitch black / deep gray (mean < 36)
@@ -550,7 +550,7 @@ class AttackEngine:
             card_r = float(np.mean(card[:, :, 2]))
 
             # Detect empty dashed slot over battlefield grass:
-            if card_b < 55 and card_g > 65 and (card_g > card_b * 1.4) and (card_b + card_r < 140):
+            if (card_b < 20 and card_g < 20 and card_r < 20) or (card_b < 55 and card_g > 65 and (card_g > card_b * 1.4) and (card_b + card_r < 140)):
                 results["empty"].append(idx + 1)
                 # In Clash of Clans, the army tray is strictly contiguous left-to-right.
                 # Once an empty slot is encountered, all subsequent slots to the right are empty!
@@ -612,14 +612,29 @@ class AttackEngine:
                 and abs(sb_m - sr_m) <= 40
             )
 
+            # Check hero traits FIRST: In Clash of Clans, a hero NEVER has a troop count badge
+            has_hero_signature = (
+                has_toggle
+                or (queen_magenta >= 35)
+                or (cyan_skin >= 18)
+                or (king_crown >= 10 and yellow_hair >= 15)
+                or (blue_scarf >= 20)
+                or is_deployed_or_cooldown
+            )
+
             # Frontline Dragon check (fiery mouth, teeth, dragon scales - NEVER a hero!)
-            snout = card[25:62, 14:52]
-            sb, sg, sr = cv2.split(snout)
-            red_snout = int(np.sum((sr > 135) & (sg < 90) & (sb < 90)))
-            white_teeth = int(np.sum((sr > 170) & (sg > 170) & (sb > 170)))
-            is_e_drag = (mean_fb > 135 and (mean_fb - mean_fr) > 20) and (cyan_skin < 25)
-            is_fire_drag = (red_snout >= 10 or white_teeth >= 8) and (mean_fr > 115 and mean_fr > mean_fb * 1.25)
-            is_dragon_card = (is_e_drag or is_fire_drag) and (purple_hair < 18) and not has_toggle
+            if has_hero_signature:
+                is_dragon_card = False
+                has_count_badge = False
+                count = 1
+            else:
+                snout = card[25:62, 14:52]
+                sb, sg, sr = cv2.split(snout)
+                red_snout = int(np.sum((sr > 135) & (sg < 90) & (sb < 90)))
+                white_teeth = int(np.sum((sr > 170) & (sg > 170) & (sb > 170)))
+                is_e_drag = (mean_fb > 135 and (mean_fb - mean_fr) > 20) and (cyan_skin < 25)
+                is_fire_drag = (red_snout >= 10 or white_teeth >= 8) and (mean_fr > 115 and mean_fr > mean_fb * 1.25)
+                is_dragon_card = (is_e_drag or is_fire_drag) and (purple_hair < 18) and not has_toggle
 
             cards_data.append({
                 "slot": idx + 1,
@@ -649,18 +664,19 @@ class AttackEngine:
         # Heroes NEVER have count badges (xN). In battle, heroes display Level badges or Hero traits.
         hero_indices = []
         for i, c in enumerate(cards_data):
-            if c["is_dragon"] or c["is_lightning"] or c["is_earthquake"]:
+            if c["is_lightning"] or c["is_earthquake"]:
                 continue
             has_hero_trait = (
                 c["has_toggle"]
-                or c["queen_magenta"] >= 45
-                or c["cyan_skin"] >= 20
+                or c["queen_magenta"] >= 35
+                or c["cyan_skin"] >= 18
                 or (c["king_crown"] >= 10 and c["yellow_hair"] >= 15)
-                or c["blue_scarf"] >= 25
+                or c["blue_scarf"] >= 20
                 or c["is_deployed"]
             )
-            # A hero card must NOT have an 'x' count badge (e.g. x10, x24)
-            if has_hero_trait and not c["has_count_badge"]:
+            if has_hero_trait:
+                c["is_dragon"] = False
+                c["has_count_badge"] = False
                 hero_indices.append(i)
 
         if hero_indices:
@@ -719,13 +735,13 @@ class AttackEngine:
             h_name = None
             if cdata["has_toggle"] and "Grand Warden" not in seen_heroes:
                 h_name = "Grand Warden"
-            elif cdata["queen_magenta"] >= 45 and "Archer Queen" not in seen_heroes:
+            elif cdata["queen_magenta"] >= 35 and "Archer Queen" not in seen_heroes:
                 h_name = "Archer Queen"
             elif cdata["cyan_skin"] >= 18 and "Minion Prince" not in seen_heroes:
                 h_name = "Minion Prince"
-            elif cdata["king_crown"] >= 10 and cdata["yellow_hair"] >= 15 and "Barbarian King" not in seen_heroes:
+            elif cdata["king_crown"] >= 10 and "Barbarian King" not in seen_heroes:
                 h_name = "Barbarian King"
-            elif cdata["blue_scarf"] >= 25 and "Royal Champion" not in seen_heroes:
+            elif cdata["blue_scarf"] >= 20 and "Royal Champion" not in seen_heroes:
                 h_name = "Royal Champion"
             else:
                 h_name = self._identify_unit_name(card, is_hero=True)
@@ -866,6 +882,7 @@ class AttackEngine:
         early_surrender_pct = combat_cfg.get("early_surrender_loot_percent", 80)
 
         self.abort_requested = False
+        self.is_deploying = True
         print("\n[AttackEngine] >>> INITIATING INTELLIGENT TACTICAL ARMY DEPLOYMENT <<<")
 
         if self.check_should_abort():
@@ -1091,7 +1108,7 @@ class AttackEngine:
                 coord = s_info["coord"]
                 s_name = s_info["name"]
                 s_count = s_info.get("count", 0)
-                if s_count <= 0:
+                if s_count <= 1:
                     s_count = 4 if "Lightning" in s_name else (3 if "Earthquake" in s_name else 2)
 
                 print(f"[AttackEngine] Selecting {s_name} (x{s_count}) from slot {slot_id} at ({coord[0]}, 672)...")
@@ -1430,6 +1447,11 @@ class AttackEngine:
                 time.sleep(0.2)
             if self.check_should_abort():
                 return
+            # Safeguard: Wait if tactical spell casting is actively in progress
+            while getattr(self, "is_deploying", False):
+                time.sleep(0.1)
+                if self.check_should_abort():
+                    return
             frame = self.capture.get_frame(target_size=(1280, 720)) if hasattr(self, "capture") else None
             if frame is not None:
                 if self.detector.find_template(frame, "attack_button", threshold=0.65) or self.detector.find_template(frame, "return_home_button", threshold=0.65):

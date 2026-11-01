@@ -183,8 +183,8 @@ class UIDetector:
         if frame.shape[:2] != (720, 1280):
             frame = cv2.resize(frame, (1280, 720))
 
-        # Disqualify if connection lost or reload modal is active over the battle results
-        if self.check_connection_lost_dialog(frame) is not None or self.find_template(frame, "reload_game", threshold=0.70) is not None:
+        # Disqualify if authentic Connection Lost title or Reload modal is active over battle results
+        if self.find_template(frame, "connection_lost_title", threshold=0.72) is not None or self.find_template(frame, "reload_game", threshold=0.70) is not None:
             return None
 
         # Disqualify if active game HUD buttons are visible
@@ -325,41 +325,56 @@ class UIDetector:
         if self.find_template(frame, "attack_button", threshold=0.55) or self.find_template(frame, "build_button", threshold=0.58):
             return None
 
-        # 1. Template match for 'TRY AGAIN' button
-        for t_name in ["connection_lost_try_again", "try_again_btn"]:
-            if t_name in self.templates:
-                tmpl = self.templates[t_name]
-                res = cv2.matchTemplate(frame, tmpl, cv2.TM_CCOEFF_NORMED)
-                _, max_v, _, max_loc = cv2.minMaxLoc(res)
-                if max_v >= 0.70:
-                    btn_w = tmpl.shape[1]
-                    btn_h = tmpl.shape[0]
-                    return (max_loc[0] + btn_w // 2, max_loc[1] + btn_h // 2)
+        # Check if center dark gray dialog body is present
+        # In Android / Supercell dialogs, the modal body is solid dark gray (~#424242) spanning x: 200..1080, y: 180..580
+        center_crop = frame[180:580, 200:1080]
+        cb, cg, cr = cv2.split(center_crop)
+        gray_pts = np.sum((cr > 45) & (cr < 90) & (abs(cr.astype(int) - cg.astype(int)) < 14) & (abs(cr.astype(int) - cb.astype(int)) < 14))
+        has_dialog_body = (gray_pts >= 50000)
 
-        # 2. Template match for 'Connection lost' title
+        # Disqualify if Battle Results (Victory/Defeat) screen is active with green Return Home button, unless gray modal is genuinely covering it
+        btn_crop = frame[600:680, 540:740]
+        if btn_crop.size > 0:
+            b_b, b_g, b_r = cv2.split(btn_crop)
+            green_return_home = np.sum((b_g > 130) & (b_g > b_r * 1.25) & (b_g > b_b * 1.25))
+            if green_return_home >= 1500 and not has_dialog_body:
+                # Strictly Victory / Defeat screen, NOT a connection lost dialog!
+                return None
+
+        # 1. Template match for 'Connection lost' title
+        has_title = False
         if "connection_lost_title" in self.templates:
             tmpl_t = self.templates["connection_lost_title"]
             res_t = cv2.matchTemplate(frame, tmpl_t, cv2.TM_CCOEFF_NORMED)
             _, max_t, _, _ = cv2.minMaxLoc(res_t)
-            if max_t >= 0.72:
-                return (676, 530)
+            if max_t >= 0.70:
+                has_title = True
+
+        # 2. Template match for 'TRY AGAIN' button (ONLY valid if has_dialog_body or has_title!)
+        if has_dialog_body or has_title:
+            for t_name in ["connection_lost_try_again", "try_again_btn"]:
+                if t_name in self.templates:
+                    tmpl = self.templates[t_name]
+                    res = cv2.matchTemplate(frame, tmpl, cv2.TM_CCOEFF_NORMED)
+                    _, max_v, _, max_loc = cv2.minMaxLoc(res)
+                    if max_v >= 0.70:
+                        btn_w = tmpl.shape[1]
+                        btn_h = tmpl.shape[0]
+                        return (max_loc[0] + btn_w // 2, max_loc[1] + btn_h // 2)
+
+            if has_title:
+                return (330, 465)
 
         # 3. Color & geometry check for teal 'TRY AGAIN' text inside center dark gray box
-        # Dark gray box in center: x: 200..1080, y: 180..580
-        center_crop = frame[180:580, 200:1080]
-        if center_crop.size > 0:
-            b, g, r = cv2.split(center_crop)
-            teal_pts = (g > 110) & (b > 100) & (r < 90)
+        if has_dialog_body:
+            teal_pts = (cg > 120) & (cb > 110) & (cr < 90)
             if np.sum(teal_pts) >= 40:
-                gray_pts = (r > 40) & (r < 110) & (abs(r.astype(int) - g.astype(int)) < 15) & (abs(r.astype(int) - b.astype(int)) < 15)
-                # On connection lost dialog, gray points dominate the box (> 50,000 px)
-                if np.sum(gray_pts) >= 45000:
-                    pts = np.argwhere(teal_pts)
-                    min_y, min_x = pts.min(axis=0)
-                    max_y, max_x = pts.max(axis=0)
-                    cx = 200 + (min_x + max_x) // 2
-                    cy = 180 + (min_y + max_y) // 2
-                    return (cx, cy)
+                pts = np.argwhere(teal_pts)
+                min_y, min_x = pts.min(axis=0)
+                max_y, max_x = pts.max(axis=0)
+                cx = 200 + (min_x + max_x) // 2
+                cy = 180 + (min_y + max_y) // 2
+                return (cx, cy)
 
         return None
 

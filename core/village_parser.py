@@ -364,7 +364,7 @@ class VillageProfile:
             per_storage = STORAGE_CAPACITY_PER_LEVEL.get(th_lvl, 1750000)
             total_g = th_caps["gold"] + 4 * per_storage
             total_e = th_caps["elixir"] + 4 * per_storage
-            total_de = 100000
+            total_de = 350000
 
         return {"gold": total_g, "elixir": total_e, "dark_elixir": total_de}
 
@@ -395,7 +395,7 @@ class VillageProfile:
             learned = realtime_learner.max_seen_storages
             learned_g = learned.get("gold", 0)
             learned_e = learned.get("elixir", 0)
-            learned_de = min(500000, learned.get("dark_elixir", 100000)) if learned.get("dark_elixir", 0) > 0 else 100000
+            learned_de = min(500000, learned.get("dark_elixir", 350000)) if learned.get("dark_elixir", 0) > 0 else 100000
         except Exception:
             pass
 
@@ -411,7 +411,7 @@ class VillageProfile:
                 s_cfg = cfg.get("storages", {})
                 cfg_g = s_cfg.get("max_gold_capacity", 0)
                 cfg_e = s_cfg.get("max_elixir_capacity", 0)
-                cfg_de = s_cfg.get("max_dark_elixir_capacity", 100000)
+                cfg_de = s_cfg.get("max_dark_elixir_capacity", 350000)
             except Exception:
                 pass
 

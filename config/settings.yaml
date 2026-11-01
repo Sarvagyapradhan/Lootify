@@ -1,5 +1,5 @@
 general:
-  bot_mode: BOTH
+  bot_mode: ONLY_WALL_DUMP
 emulator:
   type: MEmu
   adb_host: 127.0.0.1
@@ -49,7 +49,7 @@ village_profile:
 storages:
   max_gold_capacity: 5504500
   max_elixir_capacity: 5503000
-  max_dark_elixir_capacity: 100000
+  max_dark_elixir_capacity: 350000
 wall_dump:
   enabled: true
   storage_full_percentage: 80

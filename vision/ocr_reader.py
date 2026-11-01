@@ -185,8 +185,8 @@ class LootOCRReader:
             val = 0
 
         valid_tiers = [
-            200, 1000, 5000, 10000, 20000, 50000, 75000,
-            100000, 200000, 300000, 500000, 800000,
+            200, 1000, 4000, 5000, 10000, 20000, 25000, 50000, 75000,
+            100000, 150000, 200000, 250000, 300000, 500000, 800000,
             1000000, 2000000, 3000000, 4000000, 5000000, 7000000, 9000000
         ]
         for tier in valid_tiers:
@@ -203,6 +203,10 @@ class LootOCRReader:
         if n_digits >= 7:
             return tier_maps[7].get(first_char, 1000000)
         elif n_digits == 6:
+            if digits_str.startswith('25') or (val > 220000 and val < 280000):
+                return 250000
+            elif digits_str.startswith('15') or (val > 130000 and val < 170000):
+                return 150000
             return tier_maps[6].get(first_char, 500000)
         elif n_digits == 5:
             return tier_maps[5].get(first_char, 10000)
@@ -415,23 +419,25 @@ class LootOCRReader:
         try:
             from core.village_parser import village_profile
             caps = village_profile.get_max_storage_capacities()
-            max_g = caps.get("gold", 5504500)
-            max_e = caps.get("elixir", 5503000)
-            max_de = caps.get("dark_elixir", 100000)
+            max_g = max(caps.get("gold", 5504500), 5500000)
+            max_e = max(caps.get("elixir", 5503000), 5500000)
+            max_de = max(caps.get("dark_elixir", 350000), 350000)
+
+            # Dynamically adapt to realistic higher player storage capacities (up to 400,000 for TH11-17)
+            if 0 < de <= 400000 and de > max_de:
+                max_de = de
 
             def _clamp_val(val, max_cap, name):
                 if val <= 0:
                     return 0
-                if val > int(max_cap * 1.12):
+                if val > int(max_cap * 1.25):
                     # Check if extra digits (e.g. '72' or '7') were prepended to actual number
                     s = str(val)
                     for cut in [1, 2, 3]:
                         if len(s) > cut:
                             sub = int(s[cut:])
                             if 0 < sub <= max_cap:
-                                print(f"[LootOCRReader] Corrected outlier {name} reading {val:,} -> {sub:,} (Max: {max_cap:,})")
                                 return sub
-                    print(f"[LootOCRReader] Clamped outlier {name} reading {val:,} to max capacity {max_cap:,}")
                     return max_cap
                 return val
 

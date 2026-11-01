@@ -251,6 +251,25 @@ class WallUpgrader:
         # Walls typically appear within 1 to 5 scrolls from top. Lower level walls appear further down.
         print(f"[WallUpgrader] Scanning Build panel for Wall entries (Preferred Resource: {preferred_resource}, Strategy: {self.strategy})...")
         
+        # Fast Selection Check: If target wall tier is already visible on current view (scroll 0), select immediately!
+        f_init = self.capture.get_frame(target_size=(1280, 720))
+        init_walls = self.detector.find_all_walls_in_builder_menu(f_init, ocr_reader=self.ocr)
+        if init_walls:
+            last_cost = getattr(self, "_last_selected_wall_cost", 0)
+            matching = [w for w in init_walls if w.get("resource") in [preferred_resource, "BOTH"]]
+            target_cands = matching if matching else init_walls
+            for w in target_cands:
+                w_cost = w.get("cost", 0)
+                if (last_cost > 0 and abs(w_cost - last_cost) <= 25000) or (w_cost > 0 and w_cost <= 250000):
+                    print(f"[WallUpgrader] ⚡ Fast Selection: Target wall (Cost: {w_cost:,}) already in view at {w['pos']}! Selecting immediately.")
+                    self._last_selected_wall_cost = w_cost
+                    self.adb.tap(w["pos"][0], w["pos"][1])
+                    time.sleep(0.4)
+                    f_map = self.capture.get_frame(target_size=(1280, 720))
+                    layout_chk = self.detector.detect_wall_batch_layout(f_map)
+                    if layout_chk and layout_chk.get("is_wall", True):
+                        return True
+
         # Comprehensive Drawer Wall Cataloger
         # If CHEAPEST_FIRST: We explore up to 6 scrolls downwards, recording all wall entries and costs.
         # An ultra-cheap wall (cost <= 10,000, e.g. 1k, 5k, 10k) is the lowest possible tier in COC.
@@ -300,10 +319,16 @@ class WallUpgrader:
                     print(f"[WallUpgrader] Lowest wall tier ({cheapest_so_far:,}) already discovered. Stopping downward exploration.")
                     break
 
+                # Stop early if lowest affordable wall tier (<= 250,000) already discovered
+                cheapest_so_far = min([c["cost"] for c in discovered_candidates if c["cost"] > 0], default=99999999)
+                if cheapest_so_far <= 250000:
+                    print(f"[WallUpgrader] Lowest wall tier ({cheapest_so_far:,}) already discovered. Stopping downward exploration early.")
+                    break
+
                 # Exploring further down Build drawer for lowest cost wall
                 print(f"[WallUpgrader] Exploring further down Build drawer for lowest cost wall (scroll {attempt + 1}/{max_scroll_attempts})...")
-                self.adb.swipe(1050, 480, 1050, 240, duration_ms=450)
-                time.sleep(0.8)
+                self.adb.swipe(1050, 480, 1050, 240, duration_ms=280)
+                time.sleep(0.35)
                 # Check if swipe actually moved the content (drawer bottom detection)
                 frame_after = self.capture.get_frame(target_size=(1280, 720))
                 if frame is not None and frame_after is not None:
@@ -340,8 +365,8 @@ class WallUpgrader:
             if scroll_diff > 0:
                 print(f"[WallUpgrader] Scrolling back up {scroll_diff} step(s) to reach best wall (Cost: {best_choice['cost']:,})...")
                 for s in range(scroll_diff):
-                    self.adb.swipe(1050, 240, 1050, 480, duration_ms=450)
-                    time.sleep(0.7)
+                    self.adb.swipe(1050, 240, 1050, 480, duration_ms=280)
+                    time.sleep(0.35)
                     f_mid = self.capture.get_frame(target_size=(1280, 720))
                     walls_mid = self.detector.find_all_walls_in_builder_menu(f_mid, ocr_reader=self.ocr)
                     if walls_mid:
@@ -657,9 +682,9 @@ class WallUpgrader:
             if not btn_add_10:
                 break
             print(f"[WallUpgrader] Safely adding 10 walls via '+10' at {btn_add_10} (count: {current_count + 10}/{max_affordable})...")
-            self.adb.tap(btn_add_10[0], btn_add_10[1], custom_delay=0.12)
+            self.adb.tap(btn_add_10[0], btn_add_10[1], custom_delay=0.04)
             current_count += 10
-            time.sleep(0.2)
+            time.sleep(0.08)
 
         # 2. Tap '+1' for remaining affordable walls
         needed_singles = max_affordable - current_count
@@ -669,9 +694,9 @@ class WallUpgrader:
                 if (current_count + 1) * single_cost > avail_budget:
                     print(f"[WallUpgrader] Addition wall check: Next wall would exceed budget ({avail_budget:,}). Stopping additions at {current_count} walls.")
                     break
-                self.adb.tap(btn_add_1[0], btn_add_1[1], custom_delay=0.10)
+                self.adb.tap(btn_add_1[0], btn_add_1[1], custom_delay=0.04)
                 current_count += 1
-                time.sleep(0.12)
+                time.sleep(0.06)
 
         time.sleep(0.3)
         print(f"[WallUpgrader] Wall additions finalized: {current_count} walls selected. Total cost: {current_count * single_cost:,} {chosen_resource} (Budget: {avail_budget:,}).")
@@ -728,11 +753,11 @@ class WallUpgrader:
             confirm_pos, mode = confirm_info
             print(f"[WallUpgrader] Confirming {mode} upgrade dialog at {confirm_pos}...")
             self.adb.tap(confirm_pos[0], confirm_pos[1])
-            time.sleep(1.2)
+            time.sleep(0.4)
         else:
             print("[WallUpgrader] No modal dialog detected (upgrade applied directly by game).")
 
-        time.sleep(1.2)
+        time.sleep(0.3)
         spent_total = current_count * single_cost
         print(f"[WallUpgrader] >>> WALL UPGRADE BATCH COMPLETED ({current_count} walls upgraded, {spent_total:,} {chosen_resource} spent, 0 GEMS SPENT)! <<<")
         return {
