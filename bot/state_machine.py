@@ -24,6 +24,7 @@ class BotState(Enum):
     RETURNING_HOME = auto()
     SESSION_BREAK = auto()
     USER_INTERVENTION = auto()
+    VILLAGE_UNDER_ATTACK = auto()
 
 
 class BotStateMachine:
@@ -87,8 +88,8 @@ class BotStateMachine:
         """Checks if current state execution should abort due to pause, stop, or user intervention."""
         if not self.is_running:
             return True
-        # In active combat (ATTACKING), the bot must deploy troops swiftly without pausing
-        if self.current_state != BotState.ATTACKING:
+        # In active combat (ATTACKING) or live defense (VILLAGE_UNDER_ATTACK), bypass USER_INTERVENTION
+        if self.current_state not in [BotState.ATTACKING, BotState.VILLAGE_UNDER_ATTACK]:
             if hasattr(self, "intervention_monitor") and self.intervention_monitor and self.intervention_monitor.is_human_active:
                 if self.current_state != BotState.USER_INTERVENTION:
                     self.set_state(BotState.USER_INTERVENTION)
@@ -189,6 +190,9 @@ class BotStateMachine:
 
                 elif self.current_state == BotState.USER_INTERVENTION:
                     self._handle_user_intervention()
+
+                elif self.current_state == BotState.VILLAGE_UNDER_ATTACK:
+                    self._handle_village_under_attack()
 
             except KeyboardInterrupt:
                 print("\n[FSM] Bot interrupted by user. Stopping safely.")
@@ -332,6 +336,92 @@ class BotStateMachine:
 
             time.sleep(0.2)
 
+    def _handle_village_under_attack(self):
+        """
+        Handles the scenario where another player is currently attacking the user's village live
+        (or defense replay / post-defense summary is active).
+        Safeguards:
+        1. Completely pauses all bot raiding, matchmaking, and village maintenance taps.
+        2. Waits passively while the live attack is taking place.
+        3. Once defense ends and 'Return Home' button appears at bottom-left, taps Return Home.
+        4. Verifies clean return to Home Village before resuming normal bot cycle.
+        """
+        print("\n=======================================================")
+        print(">>> ⚔️ ALERT: VILLAGE IS CURRENTLY UNDER LIVE ATTACK! <<<")
+        print(">>> Bot paused. Spectating live defense passively... <<<")
+        print("=======================================================")
+
+        start_wait = time.time()
+        max_defense_timeout = 240  # Clash attacks last at most 3 minutes (180s) + 30s prep
+
+        while self.is_running and not self.is_paused:
+            if self.check_abort():
+                return
+
+            frame = self.capture.get_frame(target_size=(1280, 720))
+            if frame is None:
+                self.sleep_interruptible(1.0)
+                continue
+
+            # 1. Check if Defense has finished and the cream 'Return Home' button is visible at bottom-left
+            rh_pos = self.detector.check_defense_return_home_button(frame) if self.detector else None
+            if not rh_pos and self.ocr and self.ocr.detect_screen(frame) == "DEFENSE_FINISHED":
+                rh_pos = (77, 664)
+
+            if rh_pos:
+                print(f"[LiveDefense] 🏁 Defense concluded! Tapping 'Return Home' button at {rh_pos}...")
+                self.adb.tap(rh_pos[0], rh_pos[1])
+                self.sleep_interruptible(2.5)
+
+                # Wait for Home Village to reload
+                for _ in range(12):
+                    f_check = self.capture.get_frame(target_size=(1280, 720))
+                    if f_check is not None:
+                        has_home = (
+                            self.detector.find_template(f_check, "attack_button", threshold=0.55) is not None
+                            or self.detector.find_template(f_check, "build_button", threshold=0.58) is not None
+                            or (self.ocr and self.ocr.detect_screen(f_check) == "HOME_VILLAGE")
+                        )
+                        if has_home:
+                            print("[LiveDefense] Successfully returned to Home Village. Resuming bot operations!")
+                            self.set_state(BotState.HOME_VILLAGE)
+                            return
+                    self.sleep_interruptible(0.8)
+                continue
+
+            # 2. Check if the screen already returned to Home Village on its own (e.g. user manual tap)
+            has_home_hud = (
+                self.detector.find_template(frame, "attack_button", threshold=0.55) is not None
+                or self.detector.find_template(frame, "build_button", threshold=0.58) is not None
+                or (self.ocr and self.ocr.detect_screen(frame) == "HOME_VILLAGE")
+            )
+            if has_home_hud:
+                print("[LiveDefense] Home Village detected. Resuming bot operations.")
+                self.set_state(BotState.HOME_VILLAGE)
+                return
+
+            # 3. Check if reload / disconnect popup appeared during the attack
+            if self._check_and_handle_disconnect():
+                return
+
+            # 4. Check if live attack is still actively ongoing
+            is_under_attack = (
+                (self.detector and self.detector.check_village_under_attack(frame))
+                or (self.ocr and self.ocr.detect_screen(frame) == "VILLAGE_UNDER_ATTACK")
+            )
+            elapsed = int(time.time() - start_wait)
+            if is_under_attack:
+                print(f"[LiveDefense] Attack in progress (spectating {elapsed}s)... Waiting...")
+            else:
+                print(f"[LiveDefense] Waiting for battle completion or Return Home button ({elapsed}s)...")
+
+            if elapsed > max_defense_timeout:
+                print("[LiveDefense] Defense wait timeout reached. Checking screen status...")
+                self.set_state(BotState.HOME_VILLAGE)
+                return
+
+            self.sleep_interruptible(1.5)
+
     def _check_session_break_needed(self):
         """Prevents 24/7 robotic uptimes. Triggers organic coffee/rest breaks."""
         h_cfg = self.cfg.get("humanization", {})
@@ -367,7 +457,7 @@ class BotStateMachine:
         # If any known game screen is active, game is 100% connected
         if hasattr(self, "ocr") and self.ocr:
             active_screen = self.ocr.detect_screen(frame)
-            if active_screen in ["HOME_VILLAGE", "MY_ARMY_WINDOW", "ATTACK_MENU", "MATCHMAKING", "ATTACKING", "BATTLE_RESULTS"]:
+            if active_screen in ["HOME_VILLAGE", "MY_ARMY_WINDOW", "ATTACK_MENU", "MATCHMAKING", "ATTACKING", "BATTLE_RESULTS", "VILLAGE_UNDER_ATTACK", "DEFENSE_FINISHED"]:
                 return False
 
         # If screen is dimmed (mean brightness < 45), tap neutral grass to un-dim Android/emulator
@@ -408,6 +498,15 @@ class BotStateMachine:
             self.sleep_interruptible(0.35)
             frame = self.capture.get_frame(target_size=(1280, 720))
 
+        # Check if Village is currently under live attack by another player (or defense replay active)!
+        if (
+            (self.detector and (self.detector.check_village_under_attack(frame) or self.detector.check_defense_return_home_button(frame)))
+            or (self.ocr and self.ocr.detect_screen(frame) in ["VILLAGE_UNDER_ATTACK", "DEFENSE_FINISHED"])
+        ):
+            print("\n[HomeVillage] ⚔️ Detected Live Defense / Village Under Attack! Yielding to spectate...")
+            self.set_state(BotState.VILLAGE_UNDER_ATTACK)
+            return
+
         # Check for Star Bonus / League Reward popup modal
         star_pos = self.detector.check_star_bonus_popup(frame)
         if star_pos:
@@ -424,7 +523,11 @@ class BotStateMachine:
         )
         if not has_home_hud:
             active_screen = self.ocr.detect_screen(frame) if self.ocr else "HOME_VILLAGE"
-            if active_screen == "BATTLE_RESULTS":
+            if active_screen in ["VILLAGE_UNDER_ATTACK", "DEFENSE_FINISHED"]:
+                print("[HomeVillage] Screen is live defense replay. Switching to VILLAGE_UNDER_ATTACK.")
+                self.set_state(BotState.VILLAGE_UNDER_ATTACK)
+                return
+            elif active_screen == "BATTLE_RESULTS":
                 print("[HomeVillage] Detected active Battle Results screen. Returning home cleanly...")
                 self.attack_engine.surrender_and_return_home()
                 return

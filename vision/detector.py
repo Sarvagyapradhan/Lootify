@@ -331,6 +331,83 @@ class UIDetector:
 
         return None
 
+    def check_village_under_attack(self, frame):
+        """
+        Detects if the player's village is currently under live attack (Live Replay / Spectator view).
+        Distinct visual indicators:
+        1. 'Live Replay' banner at bottom-right (template match or saturated red text).
+        2. Scared Villager avatar with 'is attacking your Village!' alert on the right.
+        3. 'Spectators:' top badge with eye icon.
+        4. Absolute absence of Home Village HUD (Build button and normal Attack button absent).
+        Returns True if under live defense, False otherwise.
+        """
+        if frame is None or frame.size == 0:
+            return False
+        if frame.shape[:2] != (720, 1280):
+            frame = cv2.resize(frame, (1280, 720))
+
+        # Check template match for 'Live Replay'
+        if "live_replay" in self.templates:
+            tmpl = self.templates["live_replay"]
+            roi = frame[560:640, 1040:1260]
+            res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
+            if cv2.minMaxLoc(res)[1] >= 0.70:
+                return True
+
+        # Check red text pixels in Live Replay area (R > 140, G < 60, B < 60)
+        c_lr = frame[580:625, 1050:1250]
+        if c_lr.size > 0:
+            red_pts = np.sum((c_lr[:, :, 2] > 140) & (c_lr[:, :, 1] < 60) & (c_lr[:, :, 0] < 60))
+            if red_pts >= 40:
+                # Disqualify if home village build hammer gold is visible
+                c_bld = frame[600:700, 1180:1270]
+                bld_gold = np.sum((c_bld[:, :, 2] > 180) & (c_bld[:, :, 1] > 140) & (c_bld[:, :, 0] < 80))
+                if bld_gold < 150:
+                    return True
+
+        # Check 'Spectators:' top bar
+        c_spec = frame[10:65, 520:760]
+        if c_spec.size > 0:
+            spec_white = np.sum((c_spec[:, :, 0] > 190) & (c_spec[:, :, 1] > 190) & (c_spec[:, :, 2] > 190))
+            spec_dark = np.sum((c_spec[:, :, 0] < 50) & (c_spec[:, :, 1] < 50) & (c_spec[:, :, 2] < 50))
+            c_atk = frame[10:45, 1050:1250]
+            atk_white = np.sum((c_atk[:, :, 0] > 190) & (c_atk[:, :, 1] > 190) & (c_atk[:, :, 2] > 190))
+            if spec_white >= 80 and spec_dark >= 800 and atk_white >= 60:
+                return True
+
+        return False
+
+    def check_defense_return_home_button(self, frame):
+        """
+        Locates the cream 'Return Home' button at the bottom-left on the Village Defense Results screen.
+        Distinct from the green Return Home button on the Raid Results screen (which is at center 640, 605).
+        Returns tap coordinates (77, 664) if detected, None otherwise.
+        """
+        if frame is None or frame.size == 0:
+            return None
+        if frame.shape[:2] != (720, 1280):
+            frame = cv2.resize(frame, (1280, 720))
+
+        # 1. Template match
+        if "defense_return_home" in self.templates:
+            tmpl = self.templates["defense_return_home"]
+            roi = frame[590:720, 0:170]
+            res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
+            val, max_val, _, max_loc = cv2.minMaxLoc(res)
+            if max_val >= 0.65:
+                h, w = tmpl.shape[:2]
+                return (max_loc[0] + w // 2, 590 + max_loc[1] + h // 2)
+
+        # 2. Color profile of Return Home button (cream frame + villager face)
+        c_rh = frame[600:720, 10:150]
+        cream_mask = (c_rh[:, :, 0] > 110) & (c_rh[:, :, 1] > 160) & (c_rh[:, :, 2] > 180)
+        if np.sum(cream_mask) >= 2500:
+            hair_mask = (c_rh[:, :, 2] > 130) & (c_rh[:, :, 1] < 90) & (c_rh[:, :, 0] < 70)
+            if np.sum(hair_mask) >= 60:
+                return (77, 664)
+
+        return None
+
     def find_all_walls_in_builder_menu(self, frame, threshold=0.80, ocr_reader=None):
         """
         Locates ALL genuine Wall entries visible in the Builder Recommendations Menu drawer (x=935..1276).

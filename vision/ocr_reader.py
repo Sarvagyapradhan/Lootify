@@ -287,6 +287,28 @@ class LootOCRReader:
         if _check_tmpl("reload_game", 0.72):
             return "DISCONNECTED"
 
+        # 1b. Check if Village is currently under live attack (Live Replay / Spectator view)
+        if _check_tmpl("live_replay", 0.70):
+            return "VILLAGE_UNDER_ATTACK"
+        c_lr = frame_1280x720[580:625, 1050:1250]
+        if c_lr.size > 0:
+            red_lr = np.sum((c_lr[:, :, 2] > 140) & (c_lr[:, :, 1] < 60) & (c_lr[:, :, 0] < 60))
+            if red_lr >= 40:
+                c_bld = frame_1280x720[600:700, 1180:1270]
+                bld_gold = np.sum((c_bld[:, :, 2] > 180) & (c_bld[:, :, 1] > 140) & (c_bld[:, :, 0] < 80))
+                if bld_gold < 150:
+                    return "VILLAGE_UNDER_ATTACK"
+
+        # 1c. Check if Defense has finished (Return Home button at bottom left with Villager icon)
+        if _check_tmpl("defense_return_home", 0.65):
+            return "DEFENSE_FINISHED"
+        c_rh = frame_1280x720[600:720, 10:150]
+        if c_rh.size > 0:
+            cream_rh = np.sum((c_rh[:, :, 0] > 110) & (c_rh[:, :, 1] > 160) & (c_rh[:, :, 2] > 180))
+            hair_rh = np.sum((c_rh[:, :, 2] > 130) & (c_rh[:, :, 1] < 90) & (c_rh[:, :, 0] < 70))
+            if cream_rh >= 2500 and hair_rh >= 60:
+                return "DEFENSE_FINISHED"
+
         # 2. Check for Home Village HUD buttons (Build hammer or Attack sword button)
         has_home_hud = (
             _check_tmpl("build_button", 0.60)

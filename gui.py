@@ -1031,7 +1031,7 @@ class ClashBotApp(ctk.CTk):
         combat_active = (
             self.bot_thread and self.bot_thread.is_alive()
             and not self.fsm.is_paused
-            and (self.fsm.current_state in [BotState.MATCHMAKING, BotState.ATTACKING])
+            and (self.fsm.current_state in [BotState.MATCHMAKING, BotState.ATTACKING, BotState.VILLAGE_UNDER_ATTACK])
         )
         if not combat_active:
             threading.Thread(target=_fetch, daemon=True).start()
@@ -1202,7 +1202,12 @@ class ClashBotApp(ctk.CTk):
         self.stat_bot_state.set("STOPPED")
 
     def _on_fsm_state_change(self, state_name):
-        display_name = "MANUAL PLAY" if state_name == "USER_INTERVENTION" else state_name
+        if state_name == "USER_INTERVENTION":
+            display_name = "MANUAL PLAY"
+        elif state_name == "VILLAGE_UNDER_ATTACK":
+            display_name = "UNDER ATTACK ⚔️"
+        else:
+            display_name = state_name
         self.after(0, lambda: self.stat_bot_state.set(display_name))
         color_map = {
             "RUNNING": ACCENT_GREEN,
@@ -1210,6 +1215,7 @@ class ClashBotApp(ctk.CTk):
             "CHECK_WALL_DUMP": ACCENT_GOLD,
             "MATCHMAKING": ACCENT_DE,
             "ATTACKING": ACCENT_RED,
+            "VILLAGE_UNDER_ATTACK": ACCENT_RED,
             "MAINTENANCE": "#a855f7",
             "SESSION_BREAK": "#fbbf24",
             "USER_INTERVENTION": "#f59e0b",
