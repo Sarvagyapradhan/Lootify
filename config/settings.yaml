@@ -1,5 +1,5 @@
 general:
-  bot_mode: ONLY_WALL_DUMP
+  bot_mode: BOTH
 emulator:
   type: MEmu
   adb_host: 127.0.0.1
@@ -34,11 +34,12 @@ combat:
   hero_slots_count: 2
   deploy_heroes: true
   hero_ability_delay: 15
+  deploy_deadline_seconds: 10
   deploy_all_spells: true
   spell_slots_count: 3
   auto_zoom_out: true
-  battle_duration_seconds: 90
-  early_surrender_loot_percent: 85
+  battle_duration_seconds: 70
+  early_surrender_loot_percent: 70
   deploy_spells: true
 village_profile:
   player_tag: '#G9JGYV2CL'
@@ -61,7 +62,7 @@ wall_dump:
   max_dump_spend_percent: 100
   repeat_until_depleted: true
   dump_trigger_mode: EVERY_N_ATTACKS
-  dump_every_n_attacks: 5
+  dump_every_n_attacks: 6
   max_storage_capacity: 5503000
   wall_strategy: CHEAPEST_FIRST
 maintenance:

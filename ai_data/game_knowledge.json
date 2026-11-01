@@ -3,9 +3,9 @@
     "town_hall": {
       "name": "Town Hall",
       "role": "CORE_TARGET",
-      "priority": 5,
-      "description": "Vats containing stored gold. Primary objective for gold farming.",
-      "notes": ""
+      "priority": 10,
+      "description": "Primary base core building. Destruction grants 1 star and unlocks the full loot payout.",
+      "notes": "Core building near base center, critical tactical target."
     },
     "clan_castle": {
       "name": "Clan Castle",
@@ -17,9 +17,9 @@
     "gold_storage": {
       "name": "Gold Storage",
       "role": "HIGH_VALUE_LOOT",
-      "priority": 5,
+      "priority": 8,
       "description": "Vats containing stored gold. Primary objective for gold farming.",
-      "notes": ""
+      "notes": "High hitpoint loot target."
     },
     "elixir_storage": {
       "name": "Elixir Storage",
@@ -39,8 +39,8 @@
       "name": "Gold Mine",
       "role": "PERIPHERY_LOOT",
       "priority": 5,
-      "description": "Vats containing stored gold. Primary objective for gold farming.",
-      "notes": ""
+      "description": "Extracts gold from the ground on the base perimeter. Holds uncollected gold between hauls.",
+      "notes": "Usually on outer ring, high loot reward when uncollected."
     },
     "elixir_collector": {
       "name": "Elixir Collector",
@@ -80,9 +80,9 @@
     "air_defense": {
       "name": "Air Defense",
       "role": "ANTI_AIR_DEFENSE",
-      "priority": 5,
-      "description": "Vats containing stored gold. Primary objective for gold farming.",
-      "notes": ""
+      "priority": 7,
+      "description": "Hidden Tesla-style rocket launcher that fires long-range homing missiles at air units.",
+      "notes": "Primary threat to air armies - prioritize destroying for dragon attacks."
     },
     "mortar": {
       "name": "Mortar",
@@ -94,9 +94,9 @@
     "wizard_tower": {
       "name": "Wizard Tower",
       "role": "SPLASH_DEFENSE",
-      "priority": 5,
-      "description": "Vats containing stored gold. Primary objective for gold farming.",
-      "notes": ""
+      "priority": 7,
+      "description": "Fires orbs of magic dealing area splash damage to swarms.",
+      "notes": "Dangerous for barch and goblin clusters."
     },
     "red_boundary": {
       "name": "Red Boundary Line",

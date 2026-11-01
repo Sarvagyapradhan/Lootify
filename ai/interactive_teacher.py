@@ -256,7 +256,10 @@ class InteractiveTeacherStudio(ctk.CTkToplevel):
             self.lbl_mode_indicator.configure(text="[Mode: Model Training]", text_color="#a855f7")
         else:
             self.active_canvas_mode = "BUILDINGS"
-            self.seg_canvas_mode.se    # ---------------- TAB 1: MARK BUILDINGS ----------------
+            self.seg_canvas_mode.set("🏷️ Mark Buildings")
+            self.lbl_mode_indicator.configure(text="[Mode: Mark Buildings]", text_color=ACCENT_GOLD)
+
+    # ---------------- TAB 1: MARK BUILDINGS ----------------
     def _build_mark_tab(self, tab):
         ctk.CTkLabel(tab, text="🏷️ Custom Building / Structure Labeler", font=ctk.CTkFont(size=14, weight="bold"), text_color=ACCENT_GOLD).pack(anchor="w", padx=6, pady=(4, 6))
 
@@ -896,7 +899,7 @@ class InteractiveTeacherStudio(ctk.CTkToplevel):
         if self.active_canvas_mode == "BUTTON_CALIBRATOR" and self.calib_box:
             cb = self.calib_box
             cv2.rectangle(display_img, (cb[0], cb[1]), (cb[2], cb[3]), (255, 120, 0), 3)
-            cv2.putText(display_img, f"CALIB: {self.var_btn_template.get()}", (cb[0], max(16, cb[1] - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 120, 0), 2)
+            cv2.putText(display_img, f"CALIB: {self._get_active_template_name()}", (cb[0], max(16, cb[1] - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 120, 0), 2)
 
         # Draw AI inspection test overlays if any
         if hasattr(self, "ai_test_boxes") and self.ai_test_boxes:

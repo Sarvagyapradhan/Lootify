@@ -612,29 +612,34 @@ class AttackEngine:
                 and abs(sb_m - sr_m) <= 40
             )
 
-            # Check hero traits FIRST: In Clash of Clans, a hero NEVER has a troop count badge
-            has_hero_signature = (
-                has_toggle
-                or (queen_magenta >= 35)
-                or (cyan_skin >= 18)
-                or (king_crown >= 10 and yellow_hair >= 15)
-                or (blue_scarf >= 20)
-                or is_deployed_or_cooldown
-            )
-
-            # Frontline Dragon check (fiery mouth, teeth, dragon scales - NEVER a hero!)
-            if has_hero_signature:
+            # Spells (Lightning & Earthquake)
+            if is_lightning_spell:
+                has_hero_signature = False
+                is_earthquake_spell = False
                 is_dragon_card = False
-                has_count_badge = False
-                count = 1
             else:
-                snout = card[25:62, 14:52]
-                sb, sg, sr = cv2.split(snout)
-                red_snout = int(np.sum((sr > 135) & (sg < 90) & (sb < 90)))
-                white_teeth = int(np.sum((sr > 170) & (sg > 170) & (sb > 170)))
-                is_e_drag = (mean_fb > 135 and (mean_fb - mean_fr) > 20) and (cyan_skin < 25)
-                is_fire_drag = (red_snout >= 10 or white_teeth >= 8) and (mean_fr > 115 and mean_fr > mean_fb * 1.25)
-                is_dragon_card = (is_e_drag or is_fire_drag) and (purple_hair < 18) and not has_toggle
+                has_hero_signature = (
+                    has_toggle
+                    or (queen_magenta >= 25)
+                    or (cyan_skin >= 15)
+                    or (king_crown >= 10 and yellow_hair >= 15)
+                    or (blue_scarf >= 20 and not is_lightning_spell and not has_count_badge)
+                    or is_deployed_or_cooldown
+                )
+
+                if has_hero_signature:
+                    is_dragon_card = False
+                    is_earthquake_spell = False
+                    has_count_badge = False
+                    count = 1
+                else:
+                    snout = card[25:62, 14:52]
+                    sb, sg, sr = cv2.split(snout)
+                    red_snout = int(np.sum((sr > 135) & (sg < 90) & (sb < 90)))
+                    white_teeth = int(np.sum((sr > 170) & (sg > 170) & (sb > 170)))
+                    is_e_drag = (mean_fb > 135 and (mean_fb - mean_fr) > 20) and (cyan_skin < 25)
+                    is_fire_drag = (red_snout >= 10 or white_teeth >= 8) and (mean_fr > 115 and mean_fr > mean_fb * 1.25)
+                    is_dragon_card = (is_e_drag or is_fire_drag) and (purple_hair < 18) and not has_toggle
 
             cards_data.append({
                 "slot": idx + 1,
@@ -655,27 +660,22 @@ class AttackEngine:
                 "is_earthquake": is_earthquake_spell,
                 "is_dragon": is_dragon_card,
                 "is_deployed": is_deployed_or_cooldown,
+                "has_hero_signature": has_hero_signature,
             })
 
         # Pass 2: Dynamic Layout Partitioning
         # In Clash of Clans, the battle tray is strictly formatted:
         # [Frontline Troops / Super Troops / Siege] -> [Available Heroes] -> [Spells]
-        #
-        # Heroes NEVER have count badges (xN). In battle, heroes display Level badges or Hero traits.
         hero_indices = []
         for i, c in enumerate(cards_data):
             if c["is_lightning"] or c["is_earthquake"]:
                 continue
-            has_hero_trait = (
-                c["has_toggle"]
-                or c["queen_magenta"] >= 35
-                or c["cyan_skin"] >= 18
-                or (c["king_crown"] >= 10 and c["yellow_hair"] >= 15)
-                or c["blue_scarf"] >= 20
-                or c["is_deployed"]
-            )
-            if has_hero_trait:
+            if (c["has_count_badge"] or c["count"] > 1) and not c["has_toggle"]:
+                continue
+            if c.get("has_hero_signature", False):
                 c["is_dragon"] = False
+                c["is_earthquake"] = False
+                c["is_lightning"] = False
                 c["has_count_badge"] = False
                 hero_indices.append(i)
 
@@ -685,6 +685,15 @@ class AttackEngine:
             troop_indices = list(range(0, first_hero_idx))
             hero_slot_indices = list(range(first_hero_idx, last_hero_idx + 1))
             spell_indices = list(range(last_hero_idx + 1, len(cards_data)))
+
+            # STRICT TOPOLOGICAL INVARIANTS:
+            # 1. Frontline troops are strictly BEFORE heroes (can NEVER be spells)
+            for idx in troop_indices:
+                cards_data[idx]["is_earthquake"] = False
+                cards_data[idx]["is_lightning"] = False
+            # 2. Spells are strictly AFTER heroes (can NEVER be troops or heroes)
+            for idx in spell_indices:
+                cards_data[idx]["is_dragon"] = False
         else:
             # 0 heroes in army (all heroes currently upgrading or sleeping!)
             # In CoC, when 0 heroes exist: [Troops] -> [Spells]
