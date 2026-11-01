@@ -643,58 +643,60 @@ class AttackEngine:
             })
 
         # Pass 2: Dynamic Layout Partitioning
-        # In Clash of Clans:
-        # - Regular frontline troops start at Slot 0 and extend to the first hero.
-        # - Heroes appear in the middle (Archer Queen, Minion Prince, Grand Warden, Barbarian King, Royal Champion).
-        # - Spells are ALWAYS located strictly after all heroes!
-        # - STRICT INVARIANT: Heroes NEVER have count badges (xN)!
-        #   Cards with genuine hero traits (queen magenta, minion cyan skin, warden green toggle, king crown) are heroes.
-        #   Cards after the heroes are GUARANTEED to be Spells (Earthquake, Lightning, etc.)!
-
-        # In Clash of Clans:
-        # - Slot 0 is Frontline Troops (Dragons x10)
-        # - Slots 1, 2, 3 are strictly the 3 Heroes: Archer Queen, Minion Prince, Grand Warden
-        # - Slots 4+ are Spells: Earthquake Spell (x3), Lightning Spell (x4)
-        # Spells can NEVER be classified as heroes!
+        # In Clash of Clans, the battle tray is strictly formatted:
+        # [Frontline Troops / Super Troops / Siege] -> [Available Heroes] -> [Spells]
+        #
+        # Heroes NEVER have count badges (xN). In battle, heroes display Level badges or Hero traits.
         hero_indices = []
-        for i in range(1, len(cards_data)):
-            c = cards_data[i]
-            if c["is_dragon"] and i == 0:
+        for i, c in enumerate(cards_data):
+            if c["is_dragon"] or c["is_lightning"] or c["is_earthquake"]:
                 continue
-            if c["is_lightning"] or c["is_earthquake"]:
-                continue
-            is_hero_trait = (
+            has_hero_trait = (
                 c["has_toggle"]
+                or c["queen_magenta"] >= 45
                 or c["cyan_skin"] >= 20
-                or c["queen_magenta"] >= 50
+                or (c["king_crown"] >= 10 and c["yellow_hair"] >= 15)
+                or c["blue_scarf"] >= 25
                 or c["is_deployed"]
             )
-            if is_hero_trait and len(hero_indices) < 3:
+            # A hero card must NOT have an 'x' count badge (e.g. x10, x24)
+            if has_hero_trait and not c["has_count_badge"]:
                 hero_indices.append(i)
 
         if hero_indices:
             first_hero_idx = min(hero_indices)
             last_hero_idx = max(hero_indices)
-            # Ensure at least up to slot 3 if 6 total cards exist
-            if len(cards_data) >= 6 and last_hero_idx < 3:
-                last_hero_idx = 3
-            spell_start_idx = last_hero_idx + 1
+            troop_indices = list(range(0, first_hero_idx))
+            hero_slot_indices = list(range(first_hero_idx, last_hero_idx + 1))
+            spell_indices = list(range(last_hero_idx + 1, len(cards_data)))
         else:
-            first_hero_idx = 1
-            last_hero_idx = min(3, len(cards_data) - 1) if len(cards_data) > 3 else 1
-            spell_start_idx = last_hero_idx + 1
+            # 0 heroes in army (all heroes currently upgrading or sleeping!)
+            # In CoC, when 0 heroes exist: [Troops] -> [Spells]
+            # Identify first spell card:
+            spell_start_idx = len(cards_data)
+            for i, c in enumerate(cards_data):
+                s_name = self._identify_unit_name(c["card"], is_spell=True)
+                if c["is_lightning"] or c["is_earthquake"] or (s_name != "Spell" and "Spell" in s_name):
+                    spell_start_idx = i
+                    break
+            troop_indices = list(range(0, spell_start_idx))
+            hero_slot_indices = []
+            spell_indices = list(range(spell_start_idx, len(cards_data)))
 
         # Pass 3: Partition Cards into Troops, Heroes, and Spells
-        # 1. Frontline Troops (0 .. first_hero_idx - 1)
-        for i in range(0, first_hero_idx):
+        # 1. Frontline Troops (Any number of troop stacks: 1 to 6+)
+        for i in troop_indices:
             cdata = cards_data[i]
             card = cdata["card"]
             cx, cy = cdata["cx"], cdata["cy"]
             count = cdata["count"]
             slot = cdata["slot"]
             t_name = self._identify_unit_name(card, is_hero=False)
-            if t_name == "Troop" or "Dragon" not in t_name:
-                t_name = "Electro Dragon" if cdata["is_dragon"] and cdata["card"][20:65, 10:52, 0].mean() > 140 else "Dragon"
+            if t_name == "Troop":
+                if cdata["is_dragon"]:
+                    t_name = "Electro Dragon" if cdata["card"][20:65, 10:52, 0].mean() > 140 else "Dragon"
+                else:
+                    t_name = f"Troop_{slot}"
             meta = get_troop_metadata(t_name)
             safe_count = count if count > 0 else (10 if "Dragon" in t_name else 15)
             results["troops"].append({
@@ -706,11 +708,9 @@ class AttackEngine:
                 "priority_order": meta.get("priority_order", 4),
             })
 
-        # 2. Heroes (first_hero_idx .. spell_start_idx - 1)
-        # Active army strictly has 3 heroes in order: Archer Queen, Minion Prince, Grand Warden
-        hero_roster = ["Archer Queen", "Minion Prince", "Grand Warden"]
+        # 2. Heroes (Only the heroes actually in the army: 0 to 4 heroes!)
         seen_heroes = set()
-        for h_pos_idx, i in enumerate(range(first_hero_idx, spell_start_idx)):
+        for i in hero_slot_indices:
             cdata = cards_data[i]
             card = cdata["card"]
             cx, cy = cdata["cx"], cdata["cy"]
@@ -719,23 +719,19 @@ class AttackEngine:
             h_name = None
             if cdata["has_toggle"] and "Grand Warden" not in seen_heroes:
                 h_name = "Grand Warden"
-            elif cdata["queen_magenta"] >= 50 and "Archer Queen" not in seen_heroes:
+            elif cdata["queen_magenta"] >= 45 and "Archer Queen" not in seen_heroes:
                 h_name = "Archer Queen"
             elif cdata["cyan_skin"] >= 18 and "Minion Prince" not in seen_heroes:
                 h_name = "Minion Prince"
+            elif cdata["king_crown"] >= 10 and cdata["yellow_hair"] >= 15 and "Barbarian King" not in seen_heroes:
+                h_name = "Barbarian King"
+            elif cdata["blue_scarf"] >= 25 and "Royal Champion" not in seen_heroes:
+                h_name = "Royal Champion"
             else:
-                # Assign in strict army order: Queen -> Minion Prince -> Warden
-                candidate = hero_roster[h_pos_idx % len(hero_roster)]
-                if candidate not in seen_heroes:
-                    h_name = candidate
-                else:
-                    for cand in hero_roster:
-                        if cand not in seen_heroes:
-                            h_name = cand
-                            break
+                h_name = self._identify_unit_name(card, is_hero=True)
+                if h_name in seen_heroes:
+                    h_name = f"Hero_{slot}"
 
-            if not h_name:
-                h_name = f"Hero_{slot}"
             seen_heroes.add(h_name)
             results["heroes"].append({
                 "slot": slot,
@@ -748,9 +744,8 @@ class AttackEngine:
                 "is_deployed": cdata.get("is_deployed", False),
             })
 
-        # 3. Spells (spell_start_idx .. len(cards_data) - 1)
-        # All cards after the last hero are GUARANTEED to be Spells (and Siege Machines)!
-        for i in range(spell_start_idx, len(cards_data)):
+        # 3. Spells (Any number of spell stacks: 1 to 5+)
+        for i in spell_indices:
             cdata = cards_data[i]
             card = cdata["card"]
             cx, cy = cdata["cx"], cdata["cy"]
@@ -758,8 +753,13 @@ class AttackEngine:
             slot = cdata["slot"]
             s_name = self._identify_unit_name(card, is_spell=True)
             if s_name == "Spell":
-                s_name = "Lightning Spell" if cdata["is_lightning"] else "Earthquake Spell"
-            safe_count = count if count > 0 else (4 if "Lightning" in s_name else 3)
+                if cdata["is_lightning"]:
+                    s_name = "Lightning Spell"
+                elif cdata["is_earthquake"]:
+                    s_name = "Earthquake Spell"
+                else:
+                    s_name = f"Spell_{slot}"
+            safe_count = count if count > 0 else (4 if "Lightning" in s_name else (3 if "Earthquake" in s_name else 2))
             results["spells"].append({
                 "slot": slot,
                 "coord": (cx, cy),
@@ -983,16 +983,17 @@ class AttackEngine:
             print(f"[AttackEngine] Slot {slot_id} ({t_name}) fully unleashed on attack flank.")
 
         # 3. Deploy Heroes on the EXACT Same Attack Flank with Troops
-        # Grand Warden, Archer Queen, and Minion Prince deploy directly along the Dragon attack line!
-        if heroes:
-            print(f"[AttackEngine] Phase 2: Deploying {len(heroes)} hero(es) directly on attack flank with army...")
-            # Deploy directly at verified drop_points on the attack flank (never scattered to far corners!)
+        # Any available heroes deploy directly along the army attack line!
+        if not heroes:
+            print("[AttackEngine] Phase 2: 0 heroes in army (all heroes currently upgrading or sleeping). Proceeding directly to Spells...")
+        else:
+            print(f"[AttackEngine] Phase 2: Deploying {len(heroes)} available hero(es) directly on attack flank with army...")
             hero_candidates = drop_points if drop_points else [(640, 75)]
 
             # Absolute safe outer beach points guaranteed outside any base red line
             SAFE_CORNER_POINTS = [(640, 65), (1095, 320), (640, 580), (175, 340)]
 
-            # Grand Warden deploys first alongside troops to immediately cover the dragons with his Life Aura:
+            # Grand Warden deploys first to immediately cover troops with his Life Aura:
             sorted_heroes = sorted(heroes, key=lambda h: 0 if "Warden" in h.get("name", "") else 1)
 
             for h_idx, h_info in enumerate(sorted_heroes):
@@ -1024,7 +1025,6 @@ class AttackEngine:
                 time.sleep(0.10)
 
                 # Tap across 3 DIFFERENT points along the attack flank to guarantee deployment
-                # even if one point hits a building's red exclusion zone:
                 pts_to_try = [
                     hero_candidates[h_idx % len(hero_candidates)],
                     hero_candidates[(h_idx + 1) % len(hero_candidates)],
@@ -1051,20 +1051,26 @@ class AttackEngine:
                 self.deployed_slots.add(slot_id)
 
                 # FAST ATTACK HERO ABILITY TIMINGS:
-                # - Grand Warden: T+5s (Early Eternal Tome shield as dragons enter defense range)
+                # - Grand Warden: T+5s (Early Eternal Tome shield)
                 # - Minion Prince: T+7s
-                # - Archer Queen: T+9s (Fast cloak burst to destroy core early instead of waiting until 63% loot)
+                # - Archer Queen: T+9s (Fast cloak burst)
+                # - Barbarian King: T+10s (Iron Fist)
+                # - Royal Champion: T+12s (Seeking Shield)
                 if "Warden" in h_name:
                     delay = 5
                 elif "Prince" in h_name:
                     delay = 7
                 elif "Queen" in h_name:
                     delay = 9
+                elif "King" in h_name:
+                    delay = 10
+                elif "Champion" in h_name:
+                    delay = 12
                 else:
                     delay = hero_ability_delay
                 self._schedule_hero_ability(h_name, coord, delay)
 
-        # 4. Smart Spell Targeting & Fast Casts (Earthquake into Core + Lightning on Air Defenses)
+        # 4. Smart Multi-Spell Targeting & Fast Casts (Earthquake, Lightning, Rage, Heal, Freeze, Jump, Poison, etc.)
         if spells:
             print(f"[AttackEngine] Phase 3: Casting {len(spells)} spell stack(s)...")
             for s_info in spells:
@@ -1086,17 +1092,15 @@ class AttackEngine:
                 s_name = s_info["name"]
                 s_count = s_info.get("count", 0)
                 if s_count <= 0:
-                    s_count = 4 if "Lightning" in s_name else 3
+                    s_count = 4 if "Lightning" in s_name else (3 if "Earthquake" in s_name else 2)
 
                 print(f"[AttackEngine] Selecting {s_name} (x{s_count}) from slot {slot_id} at ({coord[0]}, 672)...")
                 self.adb.tap(coord[0], 672, min_delay=0.02, max_delay=0.03)
                 time.sleep(0.14)  # 140ms for spell selection
 
                 if "Earthquake" in s_name:
-                    # EARTHQUAKE SPELL TARGETING:
                     # Cast all Earthquake spells directly into the CENTRAL CORE (640, 360)
-                    # to destroy core wall compartments and shave 25%+ HP from Town Hall & heavy defenses!
-                    casts_to_send = max(s_count, 3)
+                    casts_to_send = max(s_count, 1)
                     print(f"[AttackEngine] 💥 Casting {casts_to_send} Earthquake Spells directly into base core (640, 360)...")
                     for cast_i in range(casts_to_send):
                         if self.check_should_abort():
@@ -1105,10 +1109,9 @@ class AttackEngine:
                         time.sleep(0.08)
 
                 elif "Lightning" in s_name:
-                    # LIGHTNING SPELL TARGETING:
                     # Strike verified Air Defenses and key defenses (avoiding storages)
                     zap_targets = self._get_smart_lightning_targets(f_chk)
-                    casts_to_send = max(s_count, 4)
+                    casts_to_send = max(s_count, 1)
                     print(f"[AttackEngine] ⚡ Casting {casts_to_send} Lightning strikes across defenses {zap_targets}...")
                     for cast_i in range(casts_to_send):
                         if self.check_should_abort():
@@ -1120,8 +1123,46 @@ class AttackEngine:
                         self.adb.tap(st_x, st_y, min_delay=0.02, max_delay=0.035)
                         time.sleep(0.08)
 
+                elif "Rage" in s_name or "Healing" in s_name:
+                    casts_to_send = max(s_count, 1)
+                    rage_target = drop_points[0] if drop_points else (640, 420)
+                    print(f"[AttackEngine] 🔮 Casting {casts_to_send} {s_name}(s) on army advance line ({rage_target})...")
+                    for cast_i in range(casts_to_send):
+                        if self.check_should_abort():
+                            return
+                        self.adb.tap(rage_target[0] + random.randint(-15, 15), rage_target[1] + random.randint(-15, 15), min_delay=0.02, max_delay=0.035)
+                        time.sleep(0.10)
+
+                elif "Freeze" in s_name:
+                    casts_to_send = max(s_count, 1)
+                    print(f"[AttackEngine] ❄️ Casting {casts_to_send} Freeze Spell(s) on core defense cluster (640, 340)...")
+                    for cast_i in range(casts_to_send):
+                        if self.check_should_abort():
+                            return
+                        self.adb.tap(640 + random.randint(-15, 15), 340 + random.randint(-15, 15), min_delay=0.02, max_delay=0.035)
+                        time.sleep(0.10)
+
+                elif "Jump" in s_name:
+                    casts_to_send = max(s_count, 1)
+                    print(f"[AttackEngine] 🦘 Casting {casts_to_send} Jump Spell(s) on core walls (640, 360)...")
+                    for cast_i in range(casts_to_send):
+                        if self.check_should_abort():
+                            return
+                        self.adb.tap(640 + random.randint(-12, 12), 360 + random.randint(-12, 12), min_delay=0.02, max_delay=0.035)
+                        time.sleep(0.10)
+
+                elif "Poison" in s_name:
+                    casts_to_send = max(s_count, 1)
+                    print(f"[AttackEngine] ☠️ Casting {casts_to_send} Poison Spell(s) on enemy CC/hero zone (640, 380)...")
+                    for cast_i in range(casts_to_send):
+                        if self.check_should_abort():
+                            return
+                        self.adb.tap(640 + random.randint(-12, 12), 380 + random.randint(-12, 12), min_delay=0.02, max_delay=0.035)
+                        time.sleep(0.10)
+
                 else:
-                    casts_to_send = max(s_count, 3)
+                    casts_to_send = max(s_count, 1)
+                    print(f"[AttackEngine] 💫 Casting {casts_to_send} {s_name} into base core (640, 360)...")
                     for cast_i in range(casts_to_send):
                         if self.check_should_abort():
                             return
