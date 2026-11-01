@@ -283,8 +283,8 @@ class LootOCRReader:
                     return cv2.minMaxLoc(res)[1] >= thresh
             return False
 
-        # 1. Check for reload game / disconnect dialog
-        if _check_tmpl("reload_game", 0.72):
+        # 1. Check for reload game / disconnect dialog / connection lost modal
+        if _check_tmpl("reload_game", 0.72) or _check_tmpl("try_again_btn", 0.72) or _check_tmpl("connection_lost_title", 0.72):
             return "DISCONNECTED"
 
         # 1b. Check if Village is currently under live attack (Live Replay / Spectator view)
@@ -349,12 +349,12 @@ class LootOCRReader:
         # 8. Check for Battle Results / Return Home (ONLY after all active gameplay screens are ruled out!)
         top_left_brightness = np.mean(frame_1280x720[15:65, 15:65])
         if top_left_brightness < 75:  # Battle Results screen is darkened by vignette overlay
-            crop_rh = frame_1280x720[575:640, 540:740]
+            crop_rh = frame_1280x720[575:675, 530:750]
             if crop_rh.size > 0:
                 b, g, r = cv2.split(crop_rh)
-                green_pts = np.sum((g > 135) & (g > r * 1.30) & (g > b * 1.40) & (r < 115) & (b < 95))
-                white_pts = np.sum((r > 195) & (g > 195) & (b > 180))
-                if (green_pts >= 250 and white_pts >= 35) or _check_tmpl("return_home_button", 0.70):
+                green_pts = np.sum((g > 130) & (g > r * 1.25) & (g > b * 1.35) & (r < 140) & (b < 120))
+                white_pts = np.sum((r > 190) & (g > 190) & (b > 175))
+                if (green_pts >= 250 and white_pts >= 30) or _check_tmpl("return_home_button", 0.70):
                     return "BATTLE_RESULTS"
 
         # 9. Fallback for Home Village via storages

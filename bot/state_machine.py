@@ -88,7 +88,7 @@ class BotStateMachine:
         """Checks if current state execution should abort due to pause, stop, or user intervention."""
         if not self.is_running:
             return True
-        # In active combat (ATTACKING) or live defense (VILLAGE_UNDER_ATTACK), bypass USER_INTERVENTION
+        # In active combat (ATTACKING) or live defense (VILLAGE_UNDER_ATTACK), the bot must deploy troops swiftly without pausing
         if self.current_state not in [BotState.ATTACKING, BotState.VILLAGE_UNDER_ATTACK]:
             if hasattr(self, "intervention_monitor") and self.intervention_monitor and self.intervention_monitor.is_human_active:
                 if self.current_state != BotState.USER_INTERVENTION:
@@ -445,9 +445,80 @@ class BotStateMachine:
         self.set_state(BotState.HOME_VILLAGE)
 
     def _check_and_handle_disconnect(self):
-        """Detects if game was disconnected, dimmed, or shows Reload Game prompt."""
+        """
+        Detects if game was disconnected, lost connection, showed Wi-Fi poor network warning,
+        dimmed, or showed Reload Game / Try Again prompt.
+        Safeguards:
+        1. Immediately pauses / halts ongoing actions when poor network or disconnect is detected.
+        2. Taps 'TRY AGAIN' or 'Reload Game', safely reboots/relaunches the game, and waits for Home Village.
+        3. Restores bot automation cleanly once Home Village HUD returns.
+        """
         frame = self.capture.get_frame(target_size=(1280, 720))
         if frame is None:
+            return False
+
+        # 1. First check if 'Connection lost' (TRY AGAIN) or 'Reload Game' dialog is active
+        reload_pos = self.detector.check_disconnect_or_reload(frame)
+        if reload_pos:
+            is_try_again = self.detector.check_connection_lost_dialog(frame) is not None
+            if is_try_again:
+                print(f"\n[FSM] ⚠️ 'Connection lost' dialog detected! Halting actions and tapping 'TRY AGAIN' at {reload_pos}...")
+            else:
+                print(f"\n[FSM] ⚠️ Inactivity or disconnection modal detected at {reload_pos}! Auto-reloading game...")
+
+            # Immediately stop ongoing actions and tap TRY AGAIN / Reload
+            self.adb.tap(reload_pos[0], reload_pos[1])
+            self.sleep_interruptible(3.5)
+
+            # Relaunch game to ensure it boots up cleanly
+            self.adb.launch_game()
+            self.sleep_interruptible(4.0)
+
+            # Wait up to 15s for Home Village HUD to appear
+            for _ in range(15):
+                if not self.is_running:
+                    return True
+                f_check = self.capture.get_frame(target_size=(1280, 720))
+                if f_check is not None:
+                    if (
+                        self.detector.find_template(f_check, "attack_button", threshold=0.55) is not None
+                        or self.detector.find_template(f_check, "build_button", threshold=0.58) is not None
+                        or (self.ocr and self.ocr.detect_screen(f_check) == "HOME_VILLAGE")
+                    ):
+                        print("[FSM] 🔄 Home Village successfully restored after reconnection! Resuming operations...")
+                        break
+                self.sleep_interruptible(1.0)
+
+            self.set_state(BotState.HOME_VILLAGE)
+            return True
+
+        # 2. Check for Poor / Unstable Network (Wi-Fi indicator badge at center)
+        if self.detector.check_poor_network_wifi_icon(frame):
+            print("\n[NetworkMonitor] ⚠️ Poor / Unstable Network detected (Wi-Fi indicator active at center)!")
+            print("[NetworkMonitor] Pausing all bot operations immediately to prevent packet loss and desync...")
+
+            start_w = time.time()
+            max_wifi_wait = 25  # wait up to 25s for network to recover
+            while time.time() - start_w < max_wifi_wait:
+                self.sleep_interruptible(0.8)
+                if not self.is_running:
+                    return True
+
+                f_net = self.capture.get_frame(target_size=(1280, 720))
+                if f_net is None:
+                    continue
+
+                # If connection lost dialog appeared while waiting, handle it immediately!
+                if self.detector.check_disconnect_or_reload(f_net):
+                    print("[NetworkMonitor] 'Connection lost' dialog appeared during slow network. Handling reconnect...")
+                    return self._check_and_handle_disconnect()
+
+                # If Wi-Fi warning has cleared, connection has recovered!
+                if not self.detector.check_poor_network_wifi_icon(f_net):
+                    print(f"[NetworkMonitor] 📶 Network recovered after {int(time.time() - start_w)}s (Wi-Fi indicator cleared)! Resuming operations...")
+                    return False
+
+            print("[NetworkMonitor] Wi-Fi indicator still active after timeout. Probing game state cautiously...")
             return False
 
         # If Star Bonus modal is active, the game is 100% connected
@@ -470,9 +541,9 @@ class BotStateMachine:
         if reload_pos:
             print(f"\n[FSM] Inactivity or disconnection modal detected at {reload_pos}! Auto-reloading game...")
             self.adb.tap(reload_pos[0], reload_pos[1])
-            self.sleep_interruptible(4.0)
+            self.sleep_interruptible(3.5)
             self.adb.launch_game()
-            self.sleep_interruptible(5.0)
+            self.sleep_interruptible(4.0)
             self.set_state(BotState.HOME_VILLAGE)
             return True
         return False

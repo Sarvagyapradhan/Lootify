@@ -3,9 +3,9 @@
     "build_button": {
       "x": 1210,
       "y": 630,
-      "count": 3524,
-      "last_confidence": 0.934748649597168,
-      "last_seen": 1793493319.8660958
+      "count": 3525,
+      "last_confidence": 0.5833457112312317,
+      "last_seen": 1793494513.04384
     },
     "builder_wall_word": {
       "x": 1015,
@@ -66,9 +66,9 @@
     "attack_button": {
       "x": 80,
       "y": 642,
-      "count": 504,
-      "last_confidence": 0.904360294342041,
-      "last_seen": 1793494072.306989
+      "count": 527,
+      "last_confidence": 0.9382253885269165,
+      "last_seen": 1793494605.123709
     },
     "find_match_button": {
       "x": 218,
@@ -80,23 +80,23 @@
     "army_attack_button": {
       "x": 1132,
       "y": 644,
-      "count": 121,
-      "last_confidence": 0.9937415719032288,
-      "last_seen": 1793494077.0286481
+      "count": 125,
+      "last_confidence": 0.9909800291061401,
+      "last_seen": 1793494607.5939434
     },
     "next_button": {
       "x": 1166,
       "y": 540,
-      "count": 1041,
-      "last_confidence": 0.9404643177986145,
-      "last_seen": 1793494130.4747102
+      "count": 1062,
+      "last_confidence": 0.9405176043510437,
+      "last_seen": 1793494623.8696222
     },
     "end_battle_button": {
       "x": 91,
       "y": 565,
-      "count": 1487,
-      "last_confidence": 0.9940436482429504,
-      "last_seen": 1793494216.7068768
+      "count": 1682,
+      "last_confidence": 0.9940525889396667,
+      "last_seen": 1793494713.2108815
     },
     "buildings_panel_close_x": {
       "x": 1240,
@@ -128,10 +128,10 @@
     },
     "star_bonus_okay": {
       "x": 770,
-      "y": 244,
-      "count": 13,
-      "last_confidence": 0.7141382098197937,
-      "last_seen": 1793494076.483275
+      "y": 225,
+      "count": 14,
+      "last_confidence": 0.7172065377235413,
+      "last_seen": 1793494247.244159
     }
   },
   "learned_wall_costs": {},
@@ -141,6 +141,6 @@
     "elixir": 5503000,
     "dark_elixir": 100000
   },
-  "total_learning_events": 7305,
-  "last_updated": 1793494216.707266
+  "total_learning_events": 7550,
+  "last_updated": 1793494713.211068
 }

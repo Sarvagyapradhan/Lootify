@@ -1209,6 +1209,17 @@ class AttackEngine:
             if f_harvest is None:
                 continue
 
+            # Check 0: Check for Disconnection or Poor / Laggy Network
+            if self.detector.check_disconnect_or_reload(f_harvest):
+                print("[AttackEngine] ⚠️ Disconnection or 'Connection lost' dialog detected during battle! Ending battle...")
+                self.surrender_and_return_home()
+                return
+
+            if self.detector.check_poor_network_wifi_icon(f_harvest):
+                print("[AttackEngine] ⚠️ Poor / Slow Network detected (Wi-Fi indicator active). Pausing...")
+                time.sleep(1.5)
+                continue
+
             # Check 1: Has battle naturally concluded (Battle Results screen active or Return Home visible)?
             if self.detector.check_battle_ended(f_harvest) or (hasattr(self, "ocr") and self.ocr and self.ocr.detect_screen(f_harvest) == "BATTLE_RESULTS"):
                 print("[AttackEngine] 🏁 Battle results screen reached naturally (Victory/Defeat/3 Stars). Returning home...")
@@ -1403,6 +1414,31 @@ class AttackEngine:
             frame = self.capture.get_frame(target_size=(1280, 720)) if hasattr(self, "capture") else None
             if frame is None:
                 time.sleep(0.35)
+                continue
+
+            # Check for Disconnection / 'Connection lost' (TRY AGAIN)
+            reload_pos = self.detector.check_disconnect_or_reload(frame)
+            if reload_pos:
+                print(f"[AttackEngine] ⚠️ Connection lost / Reload dialog detected at {reload_pos}! Tapping 'TRY AGAIN'...")
+                self.adb.tap(reload_pos[0], reload_pos[1])
+                time.sleep(3.5)
+                self.adb.launch_game()
+                time.sleep(4.0)
+                return
+
+            # Check for Poor / Unstable Network (Wi-Fi indicator badge)
+            if self.detector.check_poor_network_wifi_icon(frame):
+                print("[AttackEngine] ⚠️ Poor Network detected (Wi-Fi indicator active). Pausing actions...")
+                start_w = time.time()
+                while time.time() - start_w < 20:
+                    time.sleep(0.8)
+                    f_w = self.capture.get_frame(target_size=(1280, 720)) if hasattr(self, "capture") else None
+                    if f_w is not None:
+                        if self.detector.check_disconnect_or_reload(f_w):
+                            break
+                        if not self.detector.check_poor_network_wifi_icon(f_w):
+                            print("[AttackEngine] 📶 Network recovered (Wi-Fi indicator cleared)! Resuming...")
+                            break
                 continue
 
             # 1. Are we already back at Home Village?

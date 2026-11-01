@@ -168,21 +168,24 @@ class UIDetector:
     def check_return_home_button(self, frame):
         """
         Locates the green 'Return Home' button on the Battle Results screen (Victory/Defeat).
-        Centered horizontally at x: 530..750, y: 570..645.
+        Centered horizontally at x: 530..750, y: 570..665.
         Strict safeguards:
         1. Must NOT be in Home Village (attack_button / build_button absent).
         2. Must NOT be in Matchmaking scouting (next_button absent).
         3. Must NOT be in Active Combat (end_battle_button absent).
-        4. Screen must be darkened by battle-end vignette (top-left corner < 75 brightness).
-        5. Must contain saturated Supercell green button pixels AND white text pixels in center.
-        Returns (640, 605) or None.
+        4. Must NOT have 'Connection lost' or 'Reload Game' dialog active over the screen.
+        5. Screen must be darkened by battle-end vignette (top-left corner < 75 brightness).
+        6. Must contain saturated Supercell green button pixels AND white text pixels in center.
+        Returns (635, 635) or template center, or None.
         """
         if frame is None or frame.size == 0:
             return None
         if frame.shape[:2] != (720, 1280):
             frame = cv2.resize(frame, (1280, 720))
-        if frame.shape[:2] != (720, 1280):
-            frame = cv2.resize(frame, (1280, 720))
+
+        # Disqualify if connection lost or reload modal is active over the battle results
+        if self.check_connection_lost_dialog(frame) is not None or self.find_template(frame, "reload_game", threshold=0.70) is not None:
+            return None
 
         # Disqualify if active game HUD buttons are visible
         if (
@@ -202,7 +205,7 @@ class UIDetector:
             template = self.templates["return_home_button"]
             res = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
             min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
-            if max_val >= 0.68:
+            if max_val >= 0.70:
                 h, w = template.shape[:2]
                 return (max_loc[0] + w // 2, max_loc[1] + h // 2)
 
@@ -212,16 +215,18 @@ class UIDetector:
             # Normal bright daylight grass; definitely NOT Battle Results modal
             return None
 
-        # Inspect button area at bottom center (575..640, 540..740)
-        crop = frame[575:640, 540:740]
+        # Inspect button area at bottom center (575..675, 530..750)
+        crop = frame[575:675, 530:750]
         if crop.size > 0:
             b, g, r = cv2.split(crop)
             # Saturated Supercell emerald green: high G, strict ratio over R and B
-            green_pts = np.sum((g > 135) & (g > r * 1.30) & (g > b * 1.40) & (r < 115) & (b < 95))
+            green_pts = np.sum((g > 130) & (g > r * 1.25) & (g > b * 1.35) & (r < 140) & (b < 120))
             # Text inside button is crisp white / cream
-            white_pts = np.sum((r > 195) & (g > 195) & (b > 180))
-            if green_pts >= 250 and white_pts >= 35:
-                return (640, 605)
+            white_pts = np.sum((r > 190) & (g > 190) & (b > 175))
+            if green_pts >= 250 and white_pts >= 30:
+                return (635, 635)
+
+        return None
 
         return None
 
@@ -285,15 +290,76 @@ class UIDetector:
                 return (94, 596)
         return None
 
+    def check_poor_network_wifi_icon(self, frame):
+        """
+        Detects the orange/red Wi-Fi warning badge at the center of the screen (around 640, 360)
+        indicating that network connectivity is poor, unstable, or suffering high packet delay.
+        Returns True if active, False otherwise.
+        """
+        if frame is None or frame.size == 0:
+            return False
+        if frame.shape[:2] != (720, 1280):
+            frame = cv2.resize(frame, (1280, 720))
+
+        roi = frame[300:460, 560:720]
+        if "wifi_warning" in self.templates:
+            tmpl = self.templates["wifi_warning"]
+            res = cv2.matchTemplate(roi, tmpl, cv2.TM_CCOEFF_NORMED)
+            _, max_v, _, _ = cv2.minMaxLoc(res)
+            if max_v >= 0.70:
+                return True
+        return False
+
+    def check_connection_lost_dialog(self, frame):
+        """
+        Checks if the 'Connection lost' system modal dialog is active on screen.
+        Contains 'Connection lost' message and teal/green 'TRY AGAIN' button.
+        Returns (x, y) coordinates of the 'TRY AGAIN' button if present, else None.
+        """
+        if frame is None or frame.size == 0:
+            return None
+        if frame.shape[:2] != (720, 1280):
+            frame = cv2.resize(frame, (1280, 720))
+
+        # Disconnection modals heavily darken the background (vignette / modal backdrop)
+        if np.mean(frame) > 55:
+            return None
+
+        # 1. Template match for 'TRY AGAIN' button
+        if "try_again_btn" in self.templates:
+            tmpl = self.templates["try_again_btn"]
+            res = cv2.matchTemplate(frame, tmpl, cv2.TM_CCOEFF_NORMED)
+            _, max_v, _, max_loc = cv2.minMaxLoc(res)
+            if max_v >= 0.72:
+                btn_w = tmpl.shape[1]
+                btn_h = tmpl.shape[0]
+                return (max_loc[0] + btn_w // 2, max_loc[1] + btn_h // 2)
+
+        # 2. Template match for 'Connection lost' title
+        if "connection_lost_title" in self.templates:
+            tmpl_t = self.templates["connection_lost_title"]
+            res_t = cv2.matchTemplate(frame, tmpl_t, cv2.TM_CCOEFF_NORMED)
+            _, max_t, _, _ = cv2.minMaxLoc(res_t)
+            if max_t >= 0.72:
+                return (334, 462)
+
+        return None
+
     def check_disconnect_or_reload(self, frame):
         """
-        Checks if an authentic Supercell 'Reload Game' button or disconnect dialog is genuinely visible.
+        Checks if an authentic Supercell 'Reload Game' button or 'Connection lost' (TRY AGAIN) dialog is visible.
         Strictly prevents false positives when normal village HUD, My Army window, or modals are active.
         """
         if frame is None:
             return None
 
-        # 1. If active home village, My Army window, or battle HUD buttons are visible, the game is 100% connected
+        # 1. First check for 'Connection lost' / 'TRY AGAIN' dialog
+        conn_pos = self.check_connection_lost_dialog(frame)
+        if conn_pos:
+            print(f"[UIDetector] Verified 'Connection lost' dialog! 'TRY AGAIN' button at {conn_pos}.")
+            return conn_pos
+
+        # 2. If active home village, My Army window, or battle HUD buttons are visible, the game is 100% connected
         if (
             self.find_template(frame, "attack_button", threshold=0.60)
             or self.find_template(frame, "build_button", threshold=0.60)
@@ -312,13 +378,13 @@ class UIDetector:
         if np.mean(frame) > 55:
             return None
 
-        # 2. Template match for authentic Supercell 'Reload Game' button (centered at x: 450..830, y: 350..550)
+        # 3. Template match for authentic Supercell 'Reload Game' button (centered at x: 450..830, y: 350..550)
         pos = self.find_template(frame, "reload_game", threshold=0.70)
         if pos and 350 <= pos[1] <= 550 and 450 <= pos[0] <= 830:
             print(f"[UIDetector] Verified Supercell 'Reload Game' prompt at {pos}.")
             return pos
 
-        # 3. Check for centered dialog box with modal backdrop (screen must be darkened)
+        # 4. Check for centered dialog box with modal backdrop (screen must be darkened)
         top_left_brightness = np.mean(frame[20:100, 20:100])
         if top_left_brightness < 45:
             dialog_crop = frame[260:480, 440:840]
